@@ -1,14 +1,14 @@
 {
   "metadata": {
-    "name": "TVTruyen123",
+    "name": "TVTruyen1234",
     "author": "Your Name",
-    "version": 1,
+    "version": 2,
     "source": "https://www.tvtruyen.com",
-    "regexp": "(www.)?tvtruyen.com/truyen/[0-9a-z-]+",
+    "regexp": "(www.)?tvtruyen.com/.+\\.html",
     "description": "Extension đọc truyện từ TVTruyen.com",
     "locale": "vi-VN",
     "language": "javascript",
-    "type": "comic"
+    "type": "novel"
   },
   "script": {
     "home": "home.js",

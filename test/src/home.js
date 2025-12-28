@@ -1,8 +1,8 @@
 function execute() {
     return Response.success([
-        {title: "Truyện mới cập nhật", input: "truyen-moi", script: "gen.js"},
-        {title: "Truyện hot", input: "truyen-hot", script: "gen.js"},
-        {title: "Truyện đề cử", input: "truyen-de-cu", script: "gen.js"},
-        {title: "Truyện full", input: "truyen-full", script: "gen.js"}
+        {title: "Truyện mới cập nhật", input: "https://www.tvtruyen.com/the-loai/tat-ca/truyen-moi.html", script: "gen.js"},
+        {title: "Truyện hot", input: "https://www.tvtruyen.com/the-loai/tat-ca/truyen-hot.html", script: "gen.js"},
+        {title: "Truyện full", input: "https://www.tvtruyen.com/the-loai/tat-ca/truyen-full.html", script: "gen.js"},
+        {title: "Truyện VIP", input: "https://www.tvtruyen.com/the-loai/tat-ca/vip.html", script: "gen.js"}
     ]);
 }

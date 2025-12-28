@@ -1,57 +1,86 @@
 function execute(url) {
+    console.log('TVTruyen detail.js - URL:', url);
+    
     let response = fetch(url);
     if (response.ok) {
         let doc = response.html();
         
-        // Lấy tiêu đề
-        let name = doc.select('h1.title, .story-title, h1').text();
+        // Lấy tiêu đề - thử nhiều selector
+        let name = '';
+        const titleSelectors = ['h1.title', 'h1', '.story-title', '.book-title', '.novel-title'];
+        for (let selector of titleSelectors) {
+            let elem = doc.select(selector).first();
+            if (elem && elem.text().trim()) {
+                name = elem.text().trim();
+                break;
+            }
+        }
+        
+        if (!name) {
+            // Lấy từ URL
+            let path = url.split('/').pop();
+            name = path.replace('.html', '').split('-').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1)
+            ).join(' ');
+        }
         
         // Lấy ảnh bìa
-        let cover = doc.select('.story-cover img, .cover img, .thumbnail img').attr('src');
+        let cover = '';
+        const coverSelectors = ['.story-cover img', '.book-cover img', '.novel-cover img', 'img.cover', '.thumbnail img'];
+        for (let selector of coverSelectors) {
+            let elem = doc.select(selector).first();
+            if (elem) {
+                cover = elem.attr('src') || elem.attr('data-src');
+                break;
+            }
+        }
         
         // Lấy tác giả
         let author = 'Đang cập nhật';
-        let authorElem = doc.select('a[href*="tac-gia"], span:contains(Tác giả) + a, .author a');
-        if (authorElem.size() > 0) {
-            author = authorElem.text();
-        } else {
-            // Tìm trong text
-            let text = doc.text();
-            let match = text.match(/Tác giả[:\s]+([^\n]+)/i);
-            if (match) author = match[1].trim();
+        let authorMatch = doc.html().match(/Tác giả[:\s]+([^<\n]+)/i);
+        if (authorMatch) author = authorMatch[1].trim();
+        
+        // Lấy mô tả
+        let description = '';
+        const descSelectors = ['.story-description', '.book-description', '.novel-description', '.description', '.summary'];
+        for (let selector of descSelectors) {
+            let elem = doc.select(selector).first();
+            if (elem && elem.text().trim()) {
+                description = elem.text().trim();
+                break;
+            }
         }
         
         // Lấy trạng thái
         let ongoing = true;
-        let statusText = doc.select('.status, .label-status, .info-status').text();
-        if (statusText.includes('Hoàn thành') || statusText.includes('Full') || statusText.includes('Completed')) {
+        let statusText = doc.html().match(/Tình trạng[:\s]+([^<\n]+)/i);
+        if (statusText && (statusText[1].includes('Hoàn thành') || statusText[1].includes('Full'))) {
             ongoing = false;
         }
         
-        // Lấy mô tả
-        let description = doc.select('.story-description, .description, .summary, .content').text();
-        
-        // Lấy thể loại và thông tin chi tiết
+        // Lấy thể loại
         let detail = '';
+        let genreElems = doc.select('a[href*="/the-loai/"]');
         let genres = [];
-        let genreElems = doc.select('.genres a, .tags a, .category a, a[href*="the-loai"]');
         genreElems.forEach(e => {
-            genres.push(e.text());
+            let genre = e.text().trim();
+            if (genre && !genres.includes(genre)) {
+                genres.push(genre);
+            }
         });
         
         if (genres.length > 0) {
             detail += 'Thể loại: ' + genres.join(', ') + '<br>';
         }
         
-        // Lấy thông tin update
-        let updateElem = doc.select('.update-time, time, .last-updated');
-        if (updateElem.size() > 0) {
-            detail += 'Update: ' + updateElem.first().text();
+        // Xử lý URL ảnh
+        if (cover && !cover.startsWith('http')) {
+            cover = 'https://www.tvtruyen.com' + (cover.startsWith('/') ? cover : '/' + cover);
         }
         
         return Response.success({
             name: name,
-            cover: cover ? (cover.startsWith('http') ? cover : 'https://www.tvtruyen.com' + cover) : '',
+            cover: cover,
             author: author,
             description: description,
             ongoing: ongoing,
@@ -59,5 +88,6 @@ function execute(url) {
             host: "https://www.tvtruyen.com"
         });
     }
+    
     return null;
 }

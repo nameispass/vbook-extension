@@ -1,37 +1,79 @@
 function execute(url) {
+    console.log('TVTruyen toc.js - URL:', url);
+    
     let response = fetch(url);
     if (response.ok) {
         let doc = response.html();
         
         // Tìm danh sách chapter
-        let el = doc.select('.chapter-list a, .list-chapter a, a[href*="chuong"]');
+        // TVTruyen có thể có cấu trúc chapter khác, thử nhiều selector
+        const chapterSelectors = [
+            '.list-chapter a',
+            '.chapter-list a',
+            '.chapters a',
+            '#list-chapter a',
+            'a[href*="/chuong-"]',
+            'a[href*="/chap-"]',
+            'a[href*="/chapter-"]'
+        ];
         
-        // Nếu không tìm thấy theo cách thông thường, thử cách khác
-        if (el.size() === 0) {
-            el = doc.select('a').filter(e => {
-                let href = e.attr('href');
-                return href && href.includes('chuong');
-            });
+        let el = null;
+        for (let selector of chapterSelectors) {
+            el = doc.select(selector);
+            if (el.size() > 0) {
+                console.log(`Found ${el.size()} chapters with selector: ${selector}`);
+                break;
+            }
         }
         
         const data = [];
-        el.forEach(e => {
-            let chapterUrl = e.attr('href');
-            let chapterName = e.text();
-            
-            if (chapterUrl && chapterName) {
-                data.push({
-                    name: chapterName,
-                    url: chapterUrl.startsWith('http') ? chapterUrl : 'https://www.tvtruyen.com' + chapterUrl,
-                    host: "https://www.tvtruyen.com"
-                });
-            }
+        
+        if (el && el.size() > 0) {
+            el.forEach(e => {
+                let chapterUrl = e.attr('href');
+                let chapterName = e.text().trim();
+                
+                if (chapterUrl && chapterName) {
+                    data.push({
+                        name: chapterName,
+                        url: chapterUrl.startsWith('http') ? chapterUrl : 'https://www.tvtruyen.com' + chapterUrl,
+                        host: "https://www.tvtruyen.com"
+                    });
+                }
+            });
+        } else {
+            // Fallback: tìm tất cả link có chứa số (có thể là chapter)
+            console.log('Using fallback for chapters');
+            doc.select('a').forEach(e => {
+                let href = e.attr('href');
+                let text = e.text().trim();
+                
+                if (href && text && (text.includes('Chương') || text.match(/Chap\.?\s*\d+/i))) {
+                    data.push({
+                        name: text,
+                        url: href.startsWith('http') ? href : 'https://www.tvtruyen.com' + href,
+                        host: "https://www.tvtruyen.com"
+                    });
+                }
+            });
+        }
+        
+        // Sắp xếp theo thứ tự (chapter 1 -> chapter n)
+        data.sort((a, b) => {
+            let numA = extractChapterNumber(a.name);
+            let numB = extractChapterNumber(b.name);
+            return numA - numB;
         });
         
-        // Đảo ngược thứ tự (từ chapter 1 đến chapter mới nhất)
-        data.reverse();
-        
+        console.log(`Returning ${data.length} chapters`);
         return Response.success(data);
     }
+    
     return null;
+}
+
+// Hàm helper để trích xuất số chapter
+function extractChapterNumber(text) {
+    let match = text.match(/(\d+)/);
+    return match ? parseInt(match[1]) : 0;
 }

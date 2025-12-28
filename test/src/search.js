@@ -1,6 +1,8 @@
 function execute(key, page) {
     if (!page) page = '1';
     
+    console.log('TVTruyen search.js - Key:', key, 'Page:', page);
+    
     let response = fetch(`https://www.tvtruyen.com/tim-kiem`, {
         method: "GET",
         queries: {
@@ -11,52 +13,67 @@ function execute(key, page) {
     
     if (response.ok) {
         let doc = response.html();
-        let next = '';
         
-        // Kiểm tra có trang tiếp theo không
-        let nextPage = doc.select('.pagination .next:not(.disabled), .pagination a:contains(›)');
-        if (nextPage.size() > 0) {
-            next = (parseInt(page) + 1).toString();
-        }
-        
-        // Tìm kết quả tìm kiếm
-        let el = doc.select('.search-result .item, .story-item, .item, [class*="story"]');
+        // Sử dụng cùng logic với gen.js
         let data = [];
+        
+        // Tìm các item kết quả
+        let el = doc.select('.list-story .story-item, .story-list .story-item, .row .col-story');
+        
+        if (el.size() === 0) {
+            // Fallback: tìm link .html
+            el = doc.select('a[href$=".html"]').filter(e => {
+                let href = e.attr('href');
+                return href && !href.includes('/the-loai/') && e.text().trim().length > 2;
+            });
+        }
         
         for (var i = 0; i < el.size(); i++) {
             var e = el.get(i);
             
-            // Tìm link truyện
-            let linkElem = e.select('a[href*="/truyen/"]').first();
-            if (!linkElem) {
+            let linkElem, href, text;
+            
+            if (e.tagName() === 'a') {
+                linkElem = e;
+                href = linkElem.attr('href');
+                text = linkElem.text().trim();
+            } else {
                 linkElem = e.select('a').first();
+                if (linkElem) {
+                    href = linkElem.attr('href');
+                    text = linkElem.attr('title') || linkElem.text().trim();
+                }
             }
             
-            if (linkElem) {
-                let link = linkElem.attr('href');
-                let title = linkElem.attr('title') || linkElem.text();
-                
-                // Tìm ảnh bìa
-                let cover = e.select('img').attr('src') || e.select('img').attr('data-src');
-                
-                // Tìm mô tả
-                let description = '';
-                let descElem = e.select('.description, .summary, .chapter');
-                if (descElem.size() > 0) {
-                    description = descElem.text();
+            if (href && href.endsWith('.html') && text && !href.includes('/the-loai/')) {
+                // Tìm ảnh
+                let cover = '';
+                if (e.tagName() !== 'a') {
+                    cover = e.select('img').attr('src') || e.select('img').attr('data-src');
                 }
                 
                 data.push({
-                    name: title.trim(),
-                    link: link.startsWith('http') ? link : 'https://www.tvtruyen.com' + link,
+                    name: text,
+                    link: href.startsWith('http') ? href : 'https://www.tvtruyen.com' + href,
                     cover: cover ? (cover.startsWith('http') ? cover : 'https://www.tvtruyen.com' + cover) : '',
-                    description: description.trim(),
+                    description: 'TVTruyen',
                     host: "https://www.tvtruyen.com"
                 });
+                
+                if (data.length >= 20) break;
             }
         }
         
+        // Kiểm tra phân trang
+        let next = '';
+        let nextPage = doc.select('.pagination .next:not(.disabled), a:contains(Trang sau)');
+        if (nextPage.size() > 0) {
+            next = (parseInt(page) + 1).toString();
+        }
+        
+        console.log(`Search results: ${data.length} items`);
         return Response.success(data, next);
     }
+    
     return null;
 }
