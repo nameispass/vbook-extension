@@ -1,0 +1,9 @@
+{
+  "name": "TvTruyen",
+  "version": 1,
+  "source": "https://www.tvtruyen.com",
+  "icon": "https://www.tvtruyen.com/images/favicon.png",
+  "description": "Đọc truyện tại TvTruyen",
+  "type": "novel",
+  "locale": "vi_VN"
+}
