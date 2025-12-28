@@ -1,4 +1,4 @@
-load('config.js');
+const BASE_URL = "https://www.tvtruyen.com";
 
 function execute() {
     return Response.success([

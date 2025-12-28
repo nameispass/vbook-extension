@@ -1,14 +1,20 @@
-function execute(key, page) {
+function execute(url, page) {
     if (!page) page = '1';
     
-    let response = fetch(`https://www.tvtruyen.com/tim-kiem`, {
-        method: "GET",
-        queries: {
-            keyword: key,
-            page: page
-        }
-    });
+    let fullUrl = '';
+    if (url === 'truyen-moi') {
+        fullUrl = `https://www.tvtruyen.com/danh-sach/truyen-moi?page=${page}`;
+    } else if (url === 'truyen-hot') {
+        fullUrl = `https://www.tvtruyen.com/danh-sach/truyen-hot?page=${page}`;
+    } else if (url === 'truyen-de-cu') {
+        fullUrl = `https://www.tvtruyen.com/danh-sach/truyen-de-cu?page=${page}`;
+    } else if (url === 'truyen-full') {
+        fullUrl = `https://www.tvtruyen.com/danh-sach/truyen-full?page=${page}`;
+    } else {
+        fullUrl = `https://www.tvtruyen.com/the-loai/${url}?page=${page}`;
+    }
     
+    let response = fetch(fullUrl);
     if (response.ok) {
         let doc = response.html();
         let next = '';
@@ -19,8 +25,8 @@ function execute(key, page) {
             next = (parseInt(page) + 1).toString();
         }
         
-        // Tìm kết quả tìm kiếm
-        let el = doc.select('.search-result .item, .story-item, .item, [class*="story"]');
+        // Tìm danh sách truyện
+        let el = doc.select('.story-item, .item, [class*="story"], .grid-item');
         let data = [];
         
         for (var i = 0; i < el.size(); i++) {
@@ -39,11 +45,11 @@ function execute(key, page) {
                 // Tìm ảnh bìa
                 let cover = e.select('img').attr('src') || e.select('img').attr('data-src');
                 
-                // Tìm mô tả
+                // Tìm chapter mới nhất
                 let description = '';
-                let descElem = e.select('.description, .summary, .chapter');
-                if (descElem.size() > 0) {
-                    description = descElem.text();
+                let chapterElem = e.select('.chapter-text, .last-chapter, .new-chap, .chapter');
+                if (chapterElem.size() > 0) {
+                    description = chapterElem.text();
                 }
                 
                 data.push({

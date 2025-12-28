@@ -1,57 +1,37 @@
-/**
- * Lấy danh sách truyện theo thể loại
- */
-async function genre(genreId, page) {
-  // TVTruyen có thể có trang thể loại hoặc không
-  // Giả sử URL có dạng: https://www.tvtruyen.com/the-loai/{genreId}?page={page}
-  const genreUrl = `https://www.tvtruyen.com/the-loai/${genreId}?page=${page || 1}`;
-  
-  try {
-    const res = await fetch(genreUrl);
-    const html = await res.text();
-    const $ = cheerio.load(html);
-
-    const items = [];
-
-    $('.genre-list .story-item, .list-stories .story, .grid-stories .item').each((i, elem) => {
-      const story = $(elem);
-      const title = story.find('.title, .story-title, h3 a').text().trim();
-      const link = story.find('a').attr('href');
-      const cover = story.find('img').attr('src');
-      const update = story.find('.chapter-text, .last-chapter').text().trim();
-      
-      if (title && link) {
-        items.push({
-          name: title,
-          link: link.startsWith('http') ? link : `https://www.tvtruyen.com${link}`,
-          cover: cover ? (cover.startsWith('http') ? cover : `https://www.tvtruyen.com${cover}`) : '',
-          description: update || 'TVTruyen',
-          host: 'https://www.tvtruyen.com'
+function execute() {
+    let response = fetch("https://www.tvtruyen.com");
+    if (response.ok) {
+        let doc = response.html();
+        let el = doc.select(".menu-item a[href*='the-loai'], .nav a[href*='the-loai'], a[href*='/the-loai/']");
+        
+        const data = [];
+        el.forEach(e => {
+            let href = e.attr('href');
+            if (href) {
+                // Lấy phần cuối của URL (slug thể loại)
+                let slug = href.split('/').pop();
+                if (slug) {
+                    data.push({
+                        title: e.text(),
+                        input: slug,
+                        script: "gen.js"
+                    });
+                }
+            }
         });
-      }
-    });
-
-    const hasNext = $('.pagination .next:not(.disabled)').length > 0;
-
-    return JSON.stringify({
-      success: true,
-      data: {
-        items: items,
-        hasNext: hasNext,
-        currentPage: page || 1,
-        genre: genreId
-      }
-    });
-  } catch (error) {
-    // Nếu không có trang thể loại, trả về danh sách rỗng
-    return JSON.stringify({
-      success: true,
-      data: {
-        items: [],
-        hasNext: false,
-        currentPage: 1,
-        genre: genreId
-      }
-    });
-  }
+        
+        // Nếu không tìm thấy thể loại, thêm một số thể loại mặc định
+        if (data.length === 0) {
+            data.push(
+                {title: "Truyện tranh", input: "truyen-tranh", script: "gen.js"},
+                {title: "Tiên hiệp", input: "tien-hiep", script: "gen.js"},
+                {title: "Kiếm hiệp", input: "kiem-hiep", script: "gen.js"},
+                {title: "Ngôn tình", input: "ngon-tinh", script: "gen.js"},
+                {title: "Đô thị", input: "do-thi", script: "gen.js"}
+            );
+        }
+        
+        return Response.success(data);
+    }
+    return null;
 }

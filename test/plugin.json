@@ -1,13 +1,13 @@
 {
   "metadata": {
-    "name": "TVTruyen",
+    "name": "TVTruyen123",
     "author": "Your Name",
     "version": 1,
     "source": "https://www.tvtruyen.com",
-    "regexp": "(www\\.)?tvtruyen\\.com",
-    "description": "Đọc truyện từ TVTruyen.com - Kho truyện tranh, tiểu thuyết đa dạng",
-    "locale": "vi_VN",
-    "tag": "",
+    "regexp": "(www.)?tvtruyen.com/truyen/[0-9a-z-]+",
+    "description": "Extension đọc truyện từ TVTruyen.com",
+    "locale": "vi-VN",
+    "language": "javascript",
     "type": "comic"
   },
   "script": {
@@ -15,7 +15,6 @@
     "genre": "genre.js",
     "detail": "detail.js",
     "search": "search.js",
-    "page": "page.js",
     "toc": "toc.js",
     "chap": "chap.js"
   }
