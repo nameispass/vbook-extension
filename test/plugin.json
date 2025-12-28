@@ -1,11 +1,11 @@
 {
   "metadata": {
-    "name": "TvTruyen",
+    "name": "Test",
     "author": "nameispass",
     "version": 1,
-    "source": "https://www.tvtruyen.com",
-    "regexp": "^https://(www\\.)?tvtruyen\\.com/.*$",
-    "description": "Extension đọc truyện chữ từ TVTruyen.com - kho truyện chữ lớn, đa dạng thể loại, cập nhật liên tục.",
+    "source": "https://tangthuvien.net",
+    "regexp": "^https://(www\\.)?tangthuvien\\.net/.*$",
+    "description": "Extension đọc truyện chữ từ TangThuVien.net - kho truyện chữ lớn, đa dạng thể loại, cập nhật liên tục.",
     "locale": "vi_VN",
     "tag": "",
     "type": "novel"
