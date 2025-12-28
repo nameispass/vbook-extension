@@ -7,7 +7,7 @@
     {
       "name": "TvTruyen",
       "author": "vBook",
-      "path": "https://github.com/nameispass/vbook-extension/blob/main/tvtruyen.zip",
+      "path": "https://raw.githubusercontent.com/nameispass/vbook-extension/main/tvtruyen.zip",
       "version": 1,
       "source": "https://www.tvtruyen.com",
       "icon": "https://www.tvtruyen.com/images/favicon.png",
