@@ -1,18 +1,19 @@
 {
   "metadata": {
-    "name": "TvTruyen",
     "author": "nameispass",
-    "version": 4,
-    "source": "https://www.tvtruyen.com",
-    "regexp": "tvtruyen.com/.*",
-    "description": "Đọc truyện tại TvTruyen",
-    "locale": "vi_VN",
-    "type": "novel"
+    "description": ""
   },
-  "script": {
-    "detail": "main.js",
-    "toc": "main.js",
-    "chap": "main.js",
-    "search": "main.js"
-  }
-}
+  "data": [
+    {
+      "name": "TvTruyen",
+      "author": "nameispass",
+      "path": "https://raw.githubusercontent.com/nameispass/vbook-extension/main/tvtruyen/plugin.zip",
+      "version": 1,
+      "source": "https://www.tvtruyen.com/",
+      "icon": "https://raw.githubusercontent.com/nameispass/vbook-extension/main/tvtruyen/icon.png",
+      "description": "Đọc truyện trên trang tvtruyen.com",
+      "type": "novel",
+      "locale": "vi_VN"
+    }
+  ]
+}   

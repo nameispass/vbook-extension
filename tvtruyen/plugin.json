@@ -1,0 +1,22 @@
+{
+  "metadata": {
+    "name": "TvTruyen",
+    "author": "nameispass",
+    "version": 1,
+    "source": "https://www.tvtruyen.com/",
+    "regexp": "^https://(www\\.)?tvtruyen\\.com/.*$",
+    "description": "Extension đọc truyện chữ từ TVTruyen.com - kho truyện chữ lớn, đa dạng thể loại, cập nhật liên tục.",
+    "locale": "vi_VN",
+    "tag": "",
+    "type": "novel"
+  },
+  "script": {
+    "home": "home.json",
+    "genre": "genre.json",
+    "detail": "detail.json",
+    "search": "search.json",
+    "page": "page.json",
+    "toc": "toc.json",
+    "chap": "chap.json"
+  }
+}
