@@ -1,6 +1,4 @@
 function execute(url) {
-    console.log('TVTruyen chap.js - URL:', url);
-    
     let response = fetch(url);
     if (response.ok) {
         let doc = response.html();
@@ -10,7 +8,7 @@ function execute(url) {
         const contentSelectors = [
             '.chapter-content',
             '.chapter-c',
-            '.content-chap',
+            '.content-chap', 
             '.chapter-detail',
             '.ndchapter',
             '#chapter-content',

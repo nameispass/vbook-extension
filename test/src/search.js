@@ -1,8 +1,6 @@
 function execute(key, page) {
     if (!page) page = '1';
     
-    console.log('TVTruyen search.js - Key:', key, 'Page:', page);
-    
     let response = fetch(`https://www.tvtruyen.com/tim-kiem`, {
         method: "GET",
         queries: {
@@ -13,8 +11,6 @@ function execute(key, page) {
     
     if (response.ok) {
         let doc = response.html();
-        
-        // Sử dụng cùng logic với gen.js
         let data = [];
         
         // Tìm các item kết quả
@@ -71,7 +67,6 @@ function execute(key, page) {
             next = (parseInt(page) + 1).toString();
         }
         
-        console.log(`Search results: ${data.length} items`);
         return Response.success(data, next);
     }
     

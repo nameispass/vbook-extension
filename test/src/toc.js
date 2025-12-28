@@ -1,15 +1,12 @@
 function execute(url) {
-    console.log('TVTruyen toc.js - URL:', url);
-    
     let response = fetch(url);
     if (response.ok) {
         let doc = response.html();
         
         // Tìm danh sách chapter
-        // TVTruyen có thể có cấu trúc chapter khác, thử nhiều selector
         const chapterSelectors = [
             '.list-chapter a',
-            '.chapter-list a',
+            '.chapter-list a', 
             '.chapters a',
             '#list-chapter a',
             'a[href*="/chuong-"]',
@@ -21,7 +18,6 @@ function execute(url) {
         for (let selector of chapterSelectors) {
             el = doc.select(selector);
             if (el.size() > 0) {
-                console.log(`Found ${el.size()} chapters with selector: ${selector}`);
                 break;
             }
         }
@@ -43,7 +39,6 @@ function execute(url) {
             });
         } else {
             // Fallback: tìm tất cả link có chứa số (có thể là chapter)
-            console.log('Using fallback for chapters');
             doc.select('a').forEach(e => {
                 let href = e.attr('href');
                 let text = e.text().trim();
@@ -65,7 +60,6 @@ function execute(url) {
             return numA - numB;
         });
         
-        console.log(`Returning ${data.length} chapters`);
         return Response.success(data);
     }
     

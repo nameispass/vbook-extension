@@ -6,3 +6,4 @@ function execute() {
         {title: "Truyện VIP", input: "https://www.tvtruyen.com/the-loai/tat-ca/vip.html", script: "gen.js"}
     ]);
 }
+

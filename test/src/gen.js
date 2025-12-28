@@ -1,8 +1,6 @@
 function execute(url, page) {
     if (!page) page = '1';
     
-    console.log('TVTruyen gen.js - URL:', url, 'Page:', page);
-    
     // Thêm phân trang vào URL nếu cần
     let fullUrl = url;
     if (page > 1) {
@@ -13,43 +11,35 @@ function execute(url, page) {
         }
     }
     
-    console.log('Fetching:', fullUrl);
-    
     let response = fetch(fullUrl);
     if (response.ok) {
         let doc = response.html();
-        
-        // TÌM THEO CẤU TRÚC THỰC TẾ CỦA TVTruyen
-        // Các truyện thường nằm trong container có class cụ thể
-        
         let data = [];
         
-        // CÁCH 1: Tìm các item truyện theo class phổ biến trên TVTruyen
+        // CÁCH 1: Tìm các item truyện theo class phổ biến
         const itemSelectors = [
             '.list-story .story-item',
-            '.story-list .story-item',
+            '.story-list .story-item', 
             '.row .col-story',
             '.content-story .item',
             '.list-story-item',
             '.story-item',
             '.item-story',
             '.book-item',
-            '.novel-item'
+            '.novel-item',
+            '.item'
         ];
         
         let el = null;
         for (let selector of itemSelectors) {
             el = doc.select(selector);
             if (el.size() > 0) {
-                console.log(`Found ${el.size()} items with selector: ${selector}`);
                 break;
             }
         }
         
-        // CÁCH 2: Nếu không tìm thấy, tìm tất cả div có chứa link .html
+        // CÁCH 2: Nếu không tìm thấy, tìm tất cả link .html
         if (!el || el.size() === 0) {
-            console.log('Using fallback: finding all .html links');
-            
             // Tìm tất cả link có .html và không phải thể loại/tìm kiếm
             let allHtmlLinks = doc.select('a[href$=".html"]').filter(e => {
                 let href = e.attr('href');
@@ -61,9 +51,7 @@ function execute(url, page) {
                        e.text().trim().length > 2;
             });
             
-            console.log(`Found ${allHtmlLinks.size()} .html links`);
-            
-            // Nhóm các link thành items (mỗi item có thể có nhiều link liên quan)
+            // Nhóm các link thành items
             let processedLinks = new Set();
             
             allHtmlLinks.each((i, link) => {
@@ -90,7 +78,7 @@ function execute(url, page) {
                         cover = img.attr('src') || img.attr('data-src');
                     }
                     
-                    // Tìm chapter mới nhất (có thể là text bên cạnh)
+                    // Tìm chapter mới nhất
                     let description = '';
                     let chapterText = link.parent().select('.chapter-text, .last-chapter, .new-chap').text();
                     if (!chapterText) {
@@ -121,11 +109,11 @@ function execute(url, page) {
                 
                 // Tìm link truyện trong item
                 let linkElem = e.select('a[href$=".html"]').first();
-                if (!linkElem || linkElem.attr('href').includes('/the-loai/')) {
+                if (!linkElem || (linkElem.attr('href') && linkElem.attr('href').includes('/the-loai/'))) {
                     linkElem = e.select('a').first();
                 }
                 
-                if (linkElem) {
+                if (linkElem && linkElem.attr('href')) {
                     let href = linkElem.attr('href');
                     let text = linkElem.attr('title') || linkElem.text().trim();
                     
@@ -155,8 +143,6 @@ function execute(url, page) {
             next = (parseInt(page) + 1).toString();
         }
         
-        console.log(`Returning ${data.length} items, has next: ${next ? 'Yes' : 'No'}`);
-        
         // Loại bỏ trùng lặp
         let uniqueData = [];
         let seenLinks = new Set();
@@ -171,6 +157,5 @@ function execute(url, page) {
         return Response.success(uniqueData.slice(0, 30), next);
     }
     
-    console.log('Fetch failed');
     return null;
 }

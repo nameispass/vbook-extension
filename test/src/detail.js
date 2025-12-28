@@ -1,11 +1,9 @@
 function execute(url) {
-    console.log('TVTruyen detail.js - URL:', url);
-    
     let response = fetch(url);
     if (response.ok) {
         let doc = response.html();
         
-        // Lấy tiêu đề - thử nhiều selector
+        // Lấy tiêu đề
         let name = '';
         const titleSelectors = ['h1.title', 'h1', '.story-title', '.book-title', '.novel-title'];
         for (let selector of titleSelectors) {
@@ -37,7 +35,8 @@ function execute(url) {
         
         // Lấy tác giả
         let author = 'Đang cập nhật';
-        let authorMatch = doc.html().match(/Tác giả[:\s]+([^<\n]+)/i);
+        let html = doc.html();
+        let authorMatch = html.match(/Tác giả[:\s]+([^<\n]+)/i);
         if (authorMatch) author = authorMatch[1].trim();
         
         // Lấy mô tả
@@ -53,7 +52,7 @@ function execute(url) {
         
         // Lấy trạng thái
         let ongoing = true;
-        let statusText = doc.html().match(/Tình trạng[:\s]+([^<\n]+)/i);
+        let statusText = html.match(/Tình trạng[:\s]+([^<\n]+)/i);
         if (statusText && (statusText[1].includes('Hoàn thành') || statusText[1].includes('Full'))) {
             ongoing = false;
         }

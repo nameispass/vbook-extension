@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "name": "TVTruyen1234",
+    "name": "TVTruyen11",
     "author": "Your Name",
-    "version": 2,
+    "version": 3,
     "source": "https://www.tvtruyen.com",
     "regexp": "(www.)?tvtruyen.com/.+\\.html",
     "description": "Extension đọc truyện từ TVTruyen.com",
