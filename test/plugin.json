@@ -1,22 +1,22 @@
 {
   "metadata": {
-    "name": "Test",
-    "author": "nameispass",
-    "version": 1,
+    "name": "Truyện Full",
+    "author": "vBook",
+    "version": 10,
     "source": "https://truyenfull.vision",
-    "regexp": "^https://(www\\.)?truyenfull\\.vision/.*$",
-    "description": "Extension đọc truyện chữ từ TruyenFull.vision - kho truyện chữ lớn, đa dạng thể loại, cập nhật liên tục.",
+    "regexp": "(www.)?truyenfull.(vn|net|io|bio|vision)/[^/]+/?$",
+    "description": "Đọc truyện trên trang Truyện Full",
     "locale": "vi_VN",
-    "tag": "",
-    "type": "novel"
+    "type": "novel",
+    "language": "javascript"
   },
   "script": {
-    "home": "home.json",
-    "genre": "genre.json",
-    "detail": "detail.json",
-    "search": "search.json",
-    "page": "page.json",
-    "toc": "toc.json",
-    "chap": "chap.json"
+    "home": "home.js",
+    "genre": "genre.js",
+    "detail": "detail.js",
+    "search": "search.js",
+    "page": "page.js",
+    "toc": "toc.js",
+    "chap": "chap.js"
   }
 }

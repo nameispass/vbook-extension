@@ -2,27 +2,22 @@ load('config.js');
 function execute(url, page) {
     if (!page) page = '1';
 
-    let response = fetch(url + "&page=" + page, {
-        headers: {"user-agent": UserAgent.chrome()},
-    });
+    let response = fetch(url + "/trang-" + page);
 
     if (response.ok) {
         let doc = response.html();
         let novelList = [];
-        let next = doc.select("ul.pagination > li > a").last().attr("href").match(/page=(\d+)/);
-        if (next) next = next[1]; else next = '';
-        doc.select("#rank-view-list ul li").forEach(e => {
+        let next = doc.select(".pagination > li.active + li").last().text();
+        doc.select(".list-truyen div[itemscope]").forEach(e => {
             novelList.push({
-                name: e.select("h4 > a").text(),
-                link: e.select("h4 > a").attr("href"),
+                name: e.select(".truyen-title > a").text(),
+                link: e.select(".truyen-title > a").first().attr("href"),
                 description: e.select(".author").text(),
-                cover: e.select("img").first().attr("src"),
-                host: BASE_URL
+                cover: e.select("[data-image]").attr("data-image"),
+                host: BASE_URL,
             });
         });
-
         return Response.success(novelList, next);
     }
-
     return null;
 }

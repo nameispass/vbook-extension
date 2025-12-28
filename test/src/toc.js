@@ -1,12 +1,22 @@
-// Script lấy mục lục truyện từ TVTruyen
-// Trả về mảng object: {name, link}
-function toc_tvtruyen() {
-    const chapters = [];
-    document.querySelectorAll('.chapter-list a').forEach(a => {
-        chapters.push({
-            name: a.innerText.trim(),
-            link: a.href
+load('config.js');
+function execute(url) {
+    let response = fetch(url);
+    if (!response.ok) {
+        sleep(500)
+        response = fetch(url);
+    }
+    if (response.ok) {
+        let json = response.json();
+        let doc = Html.parse(json.chap_list);
+        let list = [];
+        doc.select(".list-chapter li a").forEach(e => {
+            list.push({
+                name: e.text(),
+                url: e.attr("href"),
+                host: BASE_URL
+            });
         });
-    });
-    return chapters;
+        return Response.success(list);
+    }
+    return null;
 }
