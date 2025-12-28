@@ -1,6 +1,7 @@
 function execute(url, page) {
     if (!page) page = 1;
     
+    // Xử lý phân trang
     let fullUrl = url;
     if (page > 1) {
         fullUrl = url + (url.includes("?") ? "&" : "?") + "page=" + page;
@@ -10,26 +11,21 @@ function execute(url, page) {
     if (res.ok) {
         let doc = res.html();
         let data = [];
-        
-        // CÁCH ĐƠN GIẢN NHẤT: Tìm tất cả link có text
-        let allLinks = doc.select("a");
+        let allLinks = doc.select("a"); // Chọn tất cả link
         
         for (let i = 0; i < allLinks.size(); i++) {
             let link = allLinks.get(i);
             let href = link.attr("href");
             let text = link.text().trim();
             
-            // Lọc cơ bản: link .html, có text, không phải menu
+            // Logic lọc cơ bản để lấy link truyện
             if (href && text && 
                 href.includes(".html") &&
                 !href.includes("/the-loai/") &&
                 !href.includes("/tim-kiem/") &&
-                !href.includes("/tac-gia/") &&
-                text.length > 3 && 
-                text.length < 80 &&
+                text.length > 3 && text.length < 80 &&
                 !text.match(/^(trang chủ|thể loại|tìm kiếm|đăng nhập|đăng ký)$/i)) {
                 
-                // Không tìm ảnh nữa (quá phức tạp)
                 data.push({
                     name: text,
                     link: fixUrl(href),
@@ -41,10 +37,8 @@ function execute(url, page) {
                 if (data.length >= 10) break;
             }
         }
-        
         return Response.success(data);
     }
-    
     return null;
 }
 

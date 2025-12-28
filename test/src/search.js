@@ -7,9 +7,8 @@ function execute(keyword, page) {
     if (res.ok) {
         let doc = res.html();
         let data = [];
-        
-        // Giống gen.js
         let links = doc.select("a");
+        
         for (let i = 0; i < links.size(); i++) {
             let link = links.get(i);
             let href = link.attr("href");

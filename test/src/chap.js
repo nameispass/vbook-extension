@@ -3,24 +3,20 @@ function execute(url) {
     if (res.ok) {
         let doc = res.html();
         let content = "";
-        
-        // Thử các selector cho nội dung
         let selectors = [".chapter-content", ".content", "article", "div"];
         
+        // Tìm phần tử chứa nội dung có nhiều text nhất
         for (let j = 0; j < selectors.length; j++) {
             let elements = doc.select(selectors[j]);
-            if (elements.size() > 0) {
-                // Lấy phần tử có nhiều text nhất
-                for (let i = 0; i < elements.size(); i++) {
-                    let elem = elements.get(i);
-                    let html = elem.html();
-                    if (html && html.length > 200) {
-                        content = html;
-                        break;
-                    }
+            for (let i = 0; i < elements.size(); i++) {
+                let elem = elements.get(i);
+                let html = elem.html();
+                if (html && html.length > 200) {
+                    content = html;
+                    break;
                 }
-                if (content) break;
             }
+            if (content) break;
         }
         
         if (!content) {

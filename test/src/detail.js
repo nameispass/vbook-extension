@@ -2,8 +2,6 @@ function execute(url) {
     let res = fetch(url);
     if (res.ok) {
         let doc = res.html();
-        
-        // Lấy tiêu đề đơn giản
         let name = "Truyện TVTruyen";
         let titles = doc.select("h1, h2, .title");
         if (titles.size() > 0) {
