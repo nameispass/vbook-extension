@@ -2,20 +2,20 @@ function execute(url) {
     let res = fetch(url);
     if (res.ok) {
         let doc = res.html();
-        
-        // Tìm nội dung - cách đơn giản không dùng .exists()
         let content = "";
-        let selectors = [".chapter-content", ".content-chap", ".ndchapter", ".content", "article", "div"];
         
-        for (let selector of selectors) {
-            let elems = doc.select(selector);
-            if (elems.size() > 0) {
-                // Chọn phần tử có nhiều text nhất
-                for (let i = 0; i < elems.size(); i++) {
-                    let elem = elems.get(i);
-                    let elemHtml = elem.html();
-                    if (elemHtml && elemHtml.length > 500) {
-                        content = elemHtml;
+        // Thử các selector cho nội dung
+        let selectors = [".chapter-content", ".content", "article", "div"];
+        
+        for (let j = 0; j < selectors.length; j++) {
+            let elements = doc.select(selectors[j]);
+            if (elements.size() > 0) {
+                // Lấy phần tử có nhiều text nhất
+                for (let i = 0; i < elements.size(); i++) {
+                    let elem = elements.get(i);
+                    let html = elem.html();
+                    if (html && html.length > 200) {
+                        content = html;
                         break;
                     }
                 }
@@ -23,12 +23,13 @@ function execute(url) {
             }
         }
         
-        if (!content || content.length < 100) {
-            content = "<p>Đang tải nội dung từ TVTruyen...</p>";
+        if (!content) {
+            content = "<p>Nội dung đang được cập nhật...</p>";
         }
         
-        // Làm sạch
-        content = cleanHtml(content);
+        // Làm sạch đơn giản
+        content = content.replace(/<script[^>]*>.*?<\/script>/gi, '');
+        content = content.replace(/<iframe[^>]*>.*?<\/iframe>/gi, '');
         
         return Response.success({
             content: content,
@@ -38,15 +39,4 @@ function execute(url) {
         });
     }
     return null;
-}
-
-function cleanHtml(html) {
-    return html
-        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-        .replace(/<ins\b[^<]*(?:(?!<\/ins>)<[^<]*)*<\/ins>/gi, '')
-        .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-        .replace(/<div[^>]*class="[^"]*ads[^"]*"[^>]*>.*?<\/div>/gi, '')
-        .replace(/<a[^>]*href="[^"]*ads[^"]*"[^>]*>.*?<\/a>/gi, '')
-        .replace(/\n/g, '')
-        .replace(/(<br\s*\/?>\s*){2,}/g, '<br>');
 }

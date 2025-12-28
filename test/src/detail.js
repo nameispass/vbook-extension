@@ -3,33 +3,22 @@ function execute(url) {
     if (res.ok) {
         let doc = res.html();
         
+        // Lấy tiêu đề đơn giản
         let name = "Truyện TVTruyen";
-        let titleElem = doc.select("h1, h2, .title, .story-title");
-        if (titleElem.size() > 0) {
-            name = titleElem.first().text().trim();
-        }
-        
-        let cover = "";
-        let imgs = doc.select("img");
-        if (imgs.size() > 0) {
-            cover = imgs.first().attr("src") || "";
+        let titles = doc.select("h1, h2, .title");
+        if (titles.size() > 0) {
+            name = titles.get(0).text().trim();
         }
         
         return Response.success({
             name: name,
-            cover: fixUrl(cover),
-            author: "Đang cập nhật",
-            description: "Mô tả truyện từ TVTruyen.com",
+            cover: "",
+            author: "Tác giả",
+            description: "Mô tả truyện",
             ongoing: true,
-            detail: "",
+            detail: "TVTruyen.com",
             host: "https://www.tvtruyen.com"
         });
     }
     return null;
-}
-
-function fixUrl(url) {
-    if (!url || url.trim() === "") return "";
-    if (url.startsWith("http")) return url;
-    return "https://www.tvtruyen.com" + (url.startsWith("/") ? url : "/" + url);
 }

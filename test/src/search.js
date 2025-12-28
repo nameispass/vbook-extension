@@ -8,13 +8,18 @@ function execute(keyword, page) {
         let doc = res.html();
         let data = [];
         
-        let links = doc.select("a[href$='.html']");
+        // Giống gen.js
+        let links = doc.select("a");
         for (let i = 0; i < links.size(); i++) {
             let link = links.get(i);
             let href = link.attr("href");
             let text = link.text().trim();
             
-            if (href && text && !href.includes("/the-loai/")) {
+            if (href && text && 
+                href.includes(".html") &&
+                !href.includes("/the-loai/") &&
+                text.length > 3) {
+                
                 data.push({
                     name: text,
                     link: fixUrl(href),
@@ -23,7 +28,7 @@ function execute(keyword, page) {
                     host: "https://www.tvtruyen.com"
                 });
                 
-                if (data.length >= 15) break;
+                if (data.length >= 10) break;
             }
         }
         
@@ -33,7 +38,7 @@ function execute(keyword, page) {
 }
 
 function fixUrl(url) {
-    if (!url || url.trim() === "") return "";
+    if (!url || url === "") return "";
     if (url.startsWith("http")) return url;
     return "https://www.tvtruyen.com" + (url.startsWith("/") ? url : "/" + url);
 }
