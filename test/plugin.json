@@ -1,14 +1,14 @@
 {
   "metadata": {
-    "name": "Truyện Full",
-    "author": "vBook",
-    "version": 10,
-    "source": "https://truyenfull.vision",
-    "regexp": "(www.)?truyenfull.(vn|net|io|bio|vision)/[^/]+/?$",
-    "description": "Đọc truyện trên trang Truyện Full",
+    "name": "TVTruyen",
+    "author": "Your Name",
+    "version": 1,
+    "source": "https://www.tvtruyen.com",
+    "regexp": "(www\\.)?tvtruyen\\.com",
+    "description": "Đọc truyện từ TVTruyen.com - Kho truyện tranh, tiểu thuyết đa dạng",
     "locale": "vi_VN",
-    "type": "novel",
-    "language": "javascript"
+    "tag": "",
+    "type": "comic"
   },
   "script": {
     "home": "home.js",

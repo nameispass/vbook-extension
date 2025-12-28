@@ -1,44 +1,57 @@
-load('config.js');
-function execute() {
-    return Response.success([
-        {title: "Tiên Hiệp", input: BASE_URL + "/the-loai/tien-hiep/", script: "gen.js"},
-        {title: "Kiếm Hiệp", input: BASE_URL + "/the-loai/kiem-hiep/", script: "gen.js"},
-        {title: "Ngôn Tình", input: BASE_URL + "/the-loai/ngon-tinh/", script: "gen.js"},
-        {title: "Đô Thị", input: BASE_URL + "/the-loai/do-thi/", script: "gen.js"},
-        {title: "Quan Trường", input: BASE_URL + "/the-loai/quan-truong/", script: "gen.js"},
-        {title: "Võng Du", input: BASE_URL + "/the-loai/vong-du/", script: "gen.js"},
-        {title: "Khoa Huyễn", input: BASE_URL + "/the-loai/khoa-huyen/", script: "gen.js"},
-        {title: "Hệ Thống", input: BASE_URL + "/the-loai/he-thong/", script: "gen.js"},
-        {title: "Huyền Huyễn", input: BASE_URL + "/the-loai/huyen-huyen/", script: "gen.js"},
-        {title: "Dị Giới", input: BASE_URL + "/the-loai/di-gioi/", script: "gen.js"},
-        {title: "Dị Năng", input: BASE_URL + "/the-loai/di-nang/", script: "gen.js"},
-        {title: "Quân Sự", input: BASE_URL + "/the-loai/quan-su/", script: "gen.js"},
-        {title: "Lịch Sử", input: BASE_URL + "/the-loai/lich-su/", script: "gen.js"},
-        {title: "Xuyên Không", input: BASE_URL + "/the-loai/xuyen-khong/", script: "gen.js"},
-        {title: "Xuyên Nhanh", input: BASE_URL + "/the-loai/xuyen-nhanh/", script: "gen.js"},
-        {title: "Trọng Sinh", input: BASE_URL + "/the-loai/trong-sinh/", script: "gen.js"},
-        {title: "Trinh Thám", input: BASE_URL + "/the-loai/trinh-tham/", script: "gen.js"},
-        {title: "Thám Hiểm", input: BASE_URL + "/the-loai/tham-hiem/", script: "gen.js"},
-        {title: "Linh Dị", input: BASE_URL + "/the-loai/linh-di/", script: "gen.js"},
-        {title: "Sắc", input: BASE_URL + "/the-loai/sac/", script: "gen.js"},
-        {title: "Ngược", input: BASE_URL + "/the-loai/nguoc/", script: "gen.js"},
-        {title: "Sủng", input: BASE_URL + "/the-loai/sung/", script: "gen.js"},
-        {title: "Cung Đấu", input: BASE_URL + "/the-loai/cung-dau/", script: "gen.js"},
-        {title: "Nữ Cường", input: BASE_URL + "/the-loai/nu-cuong/", script: "gen.js"},
-        {title: "Gia Đấu", input: BASE_URL + "/the-loai/gia-dau/", script: "gen.js"},
-        {title: "Đông Phương", input: BASE_URL + "/the-loai/dong-phuong/", script: "gen.js"},
-        {title: "Đam Mỹ", input: BASE_URL + "/the-loai/dam-my/", script: "gen.js"},
-        {title: "Bách Hợp", input: BASE_URL + "/the-loai/bach-hop/", script: "gen.js"},
-        {title: "Hài Hước", input: BASE_URL + "/the-loai/hai-huoc/", script: "gen.js"},
-        {title: "Điền Văn", input: BASE_URL + "/the-loai/dien-van/", script: "gen.js"},
-        {title: "Cổ Đại", input: BASE_URL + "/the-loai/co-dai/", script: "gen.js"},
-        {title: "Mạt Thế", input: BASE_URL + "/the-loai/mat-the/", script: "gen.js"},
-        {title: "Truyện Teen", input: BASE_URL + "/the-loai/truyen-teen/", script: "gen.js"},
-        {title: "Phương Tây", input: BASE_URL + "/the-loai/phuong-tay/", script: "gen.js"},
-        {title: "Nữ Phụ", input: BASE_URL + "/the-loai/nu-phu/", script: "gen.js"},
-        {title: "Light Novel", input: BASE_URL + "/the-loai/light-novel/", script: "gen.js"},
-        {title: "Việt Nam", input: BASE_URL + "/the-loai/viet-nam/", script: "gen.js"},
-        {title: "Đoản Văn", input: BASE_URL + "/the-loai/doan-van/", script: "gen.js"},
-        {title: "Khác", input: BASE_URL + "/the-loai/khac/", script: "gen.js"}
-    ]);
+/**
+ * Lấy danh sách truyện theo thể loại
+ */
+async function genre(genreId, page) {
+  // TVTruyen có thể có trang thể loại hoặc không
+  // Giả sử URL có dạng: https://www.tvtruyen.com/the-loai/{genreId}?page={page}
+  const genreUrl = `https://www.tvtruyen.com/the-loai/${genreId}?page=${page || 1}`;
+  
+  try {
+    const res = await fetch(genreUrl);
+    const html = await res.text();
+    const $ = cheerio.load(html);
+
+    const items = [];
+
+    $('.genre-list .story-item, .list-stories .story, .grid-stories .item').each((i, elem) => {
+      const story = $(elem);
+      const title = story.find('.title, .story-title, h3 a').text().trim();
+      const link = story.find('a').attr('href');
+      const cover = story.find('img').attr('src');
+      const update = story.find('.chapter-text, .last-chapter').text().trim();
+      
+      if (title && link) {
+        items.push({
+          name: title,
+          link: link.startsWith('http') ? link : `https://www.tvtruyen.com${link}`,
+          cover: cover ? (cover.startsWith('http') ? cover : `https://www.tvtruyen.com${cover}`) : '',
+          description: update || 'TVTruyen',
+          host: 'https://www.tvtruyen.com'
+        });
+      }
+    });
+
+    const hasNext = $('.pagination .next:not(.disabled)').length > 0;
+
+    return JSON.stringify({
+      success: true,
+      data: {
+        items: items,
+        hasNext: hasNext,
+        currentPage: page || 1,
+        genre: genreId
+      }
+    });
+  } catch (error) {
+    // Nếu không có trang thể loại, trả về danh sách rỗng
+    return JSON.stringify({
+      success: true,
+      data: {
+        items: [],
+        hasNext: false,
+        currentPage: 1,
+        genre: genreId
+      }
+    });
+  }
 }

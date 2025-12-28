@@ -1,19 +1,50 @@
-load('config.js');
-function execute(url) {
-    url = url.replace(/^(?:https?:\/\/)?(?:[^@\n]+@)?(?:www\.)?([^:\/\n?]+)/img, BASE_URL);
-    let response = fetch(url);
-    if (response.ok) {
-        let doc = response.html();
-        let list = [];
-        let truyenId = doc.select("input#truyen-id").attr("value");
-        let truyenAscii = doc.select("input#truyen-ascii").attr("value");
-        let page = doc.select("input#total-page").attr("value");
-        if (page) page = parseInt(page); else page = 1;
-        for (let i = 1; i <= page; i++) {
-            list.push(BASE_URL + "/ajax.php?type=list_chapter&tid=" + truyenId + "&tascii=" + truyenAscii + "&page=" + i + "&totalp=" + page);
-        }
-        return Response.success(list);
+/**
+ * Xử lý phân trang
+ */
+async function page(url, page) {
+  // Thêm số trang vào URL nếu cần
+  let pageUrl = url;
+  if (page > 1) {
+    if (url.includes('?')) {
+      pageUrl = `${url}&page=${page}`;
+    } else {
+      pageUrl = `${url}?page=${page}`;
     }
+  }
 
-    return null;
+  const res = await fetch(pageUrl);
+  const html = await res.text();
+  const $ = cheerio.load(html);
+
+  const items = [];
+
+  // Logic tương tự home.js
+  $('.list-stories .story-item, .story-list .item').each((i, elem) => {
+    const story = $(elem);
+    const title = story.find('.title, .story-title, h3 a').text().trim();
+    const link = story.find('a').attr('href');
+    const cover = story.find('img').attr('src');
+    const update = story.find('.chapter-text, .last-chapter').text().trim();
+    
+    if (title && link) {
+      items.push({
+        name: title,
+        link: link.startsWith('http') ? link : `https://www.tvtruyen.com${link}`,
+        cover: cover ? (cover.startsWith('http') ? cover : `https://www.tvtruyen.com${cover}`) : '',
+        description: update || 'TVTruyen',
+        host: 'https://www.tvtruyen.com'
+      });
+    }
+  });
+
+  const hasNext = $('.pagination .next:not(.disabled)').length > 0;
+
+  return JSON.stringify({
+    success: true,
+    data: {
+      items: items,
+      hasNext: hasNext,
+      currentPage: page || 1
+    }
+  });
 }

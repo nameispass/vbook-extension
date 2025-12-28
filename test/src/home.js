@@ -1,20 +1,63 @@
-load('config.js');
-function execute() {
-    return Response.success([
-        {title: "Truyện mới cập nhật", input: BASE_URL + "/danh-sach/truyen-moi/", script: "gen.js"},
-        {title: "Truyện Hot", input: BASE_URL + "/danh-sach/truyen-hot/", script: "gen.js"},
-        {title: "Truyện Full", input: BASE_URL + "/danh-sach/truyen-full/", script: "gen.js"},
-        {title: "Tiên Hiệp Hay", input: BASE_URL + "/danh-sach/tien-hiep-hay/", script: "gen.js"},
-        {title: "Kiếm Hiệp Hay", input: BASE_URL + "/danh-sach/kiem-hiep-hay/", script: "gen.js"},
-        {title: "Truyện Teen Hay", input: BASE_URL + "/danh-sach/truyen-teen-hay/", script: "gen.js"},
-        {title: "Ngôn Tình Hay", input: BASE_URL + "/danh-sach/ngon-tinh-hay/", script: "gen.js"},
-        {title: "Ngôn Tình Sắc", input: BASE_URL + "/danh-sach/ngon-tinh-sac/", script: "gen.js"},
-        {title: "Ngôn Tình Ngược", input: BASE_URL + "/danh-sach/ngon-tinh-nguoc/", script: "gen.js"},
-        {title: "Ngôn Tình Sủng", input: BASE_URL + "/danh-sach/ngon-tinh-sung/", script: "gen.js"},
-        {title: "Ngôn Tình Hài", input: BASE_URL + "/danh-sach/ngon-tinh-hai/", script: "gen.js"},
-        {title: "Đam Mỹ Hài", input: BASE_URL + "/danh-sach/dam-my-hai/", script: "gen.js"},
-        {title: "Đam Mỹ Hay", input: BASE_URL + "/danh-sach/dam-my-hay/", script: "gen.js"},
-        {title: "Đam Mỹ H Văn", input: BASE_URL + "/danh-sach/dam-my-h-van/", script: "gen.js"},
-        {title: "Đam Mỹ Sắc", input: BASE_URL + "/danh-sach/dam-my-sac/", script: "gen.js"}
-    ]);
+/**
+ * Trang chủ TVTruyen
+ * Lấy danh sách truyện mới cập nhật, hot, xem nhiều
+ */
+async function home(page) {
+  const url = 'https://www.tvtruyen.com';
+  const res = await fetch(url);
+  const html = await res.text();
+  const $ = cheerio.load(html);
+
+  const items = [];
+
+  // Lấy truyện mới cập nhật
+  $('.list-stories .story-item, .story-list .item, .grid-stories .story').each((i, elem) => {
+    const story = $(elem);
+    const title = story.find('.title, .story-title, h3 a').text().trim();
+    const link = story.find('a').attr('href');
+    const cover = story.find('img').attr('src') || story.find('img').attr('data-src');
+    const update = story.find('.chapter-text, .last-chapter, .chapter').text().trim();
+    
+    if (title && link) {
+      items.push({
+        name: title,
+        link: link.startsWith('http') ? link : `https://www.tvtruyen.com${link}`,
+        cover: cover ? (cover.startsWith('http') ? cover : `https://www.tvtruyen.com${cover}`) : '',
+        description: `Chapter mới: ${update || 'Đang cập nhật'}`,
+        host: 'https://www.tvtruyen.com'
+      });
+    }
+  });
+
+  // Nếu không lấy được theo selector trên, thử selector khác
+  if (items.length === 0) {
+    $('.hot-item, .new-item, .story-grid .item').each((i, elem) => {
+      const story = $(elem);
+      const title = story.find('a').attr('title') || story.find('img').attr('alt') || '';
+      const link = story.find('a').attr('href');
+      const cover = story.find('img').attr('src');
+      
+      if (title && link) {
+        items.push({
+          name: title,
+          link: link.startsWith('http') ? link : `https://www.tvtruyen.com${link}`,
+          cover: cover ? (cover.startsWith('http') ? cover : `https://www.tvtruyen.com${cover}`) : '',
+          description: 'TVTruyen',
+          host: 'https://www.tvtruyen.com'
+        });
+      }
+    });
+  }
+
+  // Phân trang (nếu có)
+  const hasNext = $('.pagination .next:not(.disabled), .next-page:not(.disabled)').length > 0;
+  
+  return JSON.stringify({
+    success: true,
+    data: {
+      items: items,
+      hasNext: hasNext,
+      currentPage: page || 1
+    }
+  });
 }
