@@ -11,34 +11,37 @@ function execute(url, page) {
         let doc = res.html();
         let data = [];
         
-        // THỬ CÁC CÁCH KHÁC NHAU:
+        // CÁCH 1: Tìm tất cả link .html và lọc
+        let allLinks = doc.select("a");
         
-        // Cách 1: Tìm link .html có text dài
-        let links = doc.select("a[href$='.html']");
-        
-        for (let i = 0; i < links.size(); i++) {
-            let link = links.get(i);
+        for (let i = 0; i < allLinks.size(); i++) {
+            let link = allLinks.get(i);
             let href = link.attr("href");
             let text = link.text().trim();
             
-            // Lọc link truyện
+            // Lọc link truyện (không dùng .exists())
             if (href && text && 
-                text.length > 3 && 
-                text.length < 80 &&
+                href.includes(".html") &&
                 !href.includes("/the-loai/") &&
                 !href.includes("/tim-kiem/") &&
-                !href.includes("/tac-gia/")) {
+                !href.includes("/tac-gia/") &&
+                text.length > 3 && 
+                text.length < 80) {
                 
-                // Tìm ảnh
+                // Tìm ảnh - CÁCH MỚI không dùng .exists()
                 let cover = "";
-                let img = link.select("img").first();
-                if (!img.exists()) {
-                    let parent = link.parent();
-                    img = parent.select("img").first();
-                }
                 
-                if (img.exists()) {
-                    cover = img.attr("src") || img.attr("data-src");
+                // Cách 1: Tìm img trong link
+                let imgs = link.select("img");
+                if (imgs.size() > 0) {
+                    cover = imgs.first().attr("src") || imgs.first().attr("data-src");
+                } else {
+                    // Cách 2: Tìm img trong parent
+                    let parent = link.parent();
+                    let parentImgs = parent.select("img");
+                    if (parentImgs.size() > 0) {
+                        cover = parentImgs.first().attr("src") || parentImgs.first().attr("data-src");
+                    }
                 }
                 
                 data.push({
@@ -49,21 +52,23 @@ function execute(url, page) {
                     host: "https://www.tvtruyen.com"
                 });
                 
-                if (data.length >= 20) break;
+                if (data.length >= 15) break;
             }
         }
         
-        // Cách 2: Nếu không tìm thấy, tìm theo item
-        if (data.length === 0) {
-            let items = doc.select(".item, [class*='item'], .story, [class*='story']");
+        // Nếu không đủ, tìm thêm
+        if (data.length < 5) {
+            // Tìm theo class item/story
+            let items = doc.select(".item, .story-item, [class*='item'], [class*='story']");
             for (let i = 0; i < items.size(); i++) {
                 let item = items.get(i);
-                let link = item.select("a").first();
-                if (link.exists()) {
+                let itemLinks = item.select("a");
+                if (itemLinks.size() > 0) {
+                    let link = itemLinks.first();
                     let href = link.attr("href");
                     let text = link.text().trim();
                     
-                    if (href && text && href.includes(".html")) {
+                    if (href && text) {
                         data.push({
                             name: text,
                             link: fixUrl(href),
@@ -71,19 +76,22 @@ function execute(url, page) {
                             description: "TVTruyen",
                             host: "https://www.tvtruyen.com"
                         });
+                        
+                        if (data.length >= 10) break;
                     }
                 }
             }
         }
         
-        return Response.success(data.slice(0, 15));
+        return Response.success(data.slice(0, 12));
     }
     
     return null;
 }
 
 function fixUrl(url) {
-    if (!url) return "";
+    if (!url || url.trim() === "") return "";
     if (url.startsWith("http")) return url;
+    if (url.startsWith("//")) return "https:" + url;
     return "https://www.tvtruyen.com" + (url.startsWith("/") ? url : "/" + url);
 }

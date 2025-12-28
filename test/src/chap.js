@@ -3,33 +3,37 @@ function execute(url) {
     if (res.ok) {
         let doc = res.html();
         
-        // Tìm nội dung
+        // Tìm nội dung - cách đơn giản không dùng .exists()
         let content = "";
-        let selectors = [".chapter-content", ".content-chap", ".ndchapter", ".content", "article"];
+        let selectors = [".chapter-content", ".content-chap", ".ndchapter", ".content", "article", "div"];
         
         for (let selector of selectors) {
-            let elem = doc.select(selector).first();
-            if (elem) {
-                content = elem.html();
-                break;
+            let elems = doc.select(selector);
+            if (elems.size() > 0) {
+                // Chọn phần tử có nhiều text nhất
+                for (let i = 0; i < elems.size(); i++) {
+                    let elem = elems.get(i);
+                    let elemHtml = elem.html();
+                    if (elemHtml && elemHtml.length > 500) {
+                        content = elemHtml;
+                        break;
+                    }
+                }
+                if (content) break;
             }
         }
         
-        if (!content) {
-            content = "<p>Đang tải nội dung...</p>";
+        if (!content || content.length < 100) {
+            content = "<p>Đang tải nội dung từ TVTruyen...</p>";
         }
         
         // Làm sạch
         content = cleanHtml(content);
         
-        // Tìm chapter tiếp theo/trước đó
-        let next = findChapter(doc, ["Tiếp", "Next", "›"]);
-        let prev = findChapter(doc, ["Trước", "Prev", "‹"]);
-        
         return Response.success({
             content: content,
-            next: next,
-            prev: prev,
+            next: null,
+            prev: null,
             host: "https://www.tvtruyen.com"
         });
     }
@@ -41,26 +45,8 @@ function cleanHtml(html) {
         .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
         .replace(/<ins\b[^<]*(?:(?!<\/ins>)<[^<]*)*<\/ins>/gi, '')
         .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+        .replace(/<div[^>]*class="[^"]*ads[^"]*"[^>]*>.*?<\/div>/gi, '')
+        .replace(/<a[^>]*href="[^"]*ads[^"]*"[^>]*>.*?<\/a>/gi, '')
         .replace(/\n/g, '')
         .replace(/(<br\s*\/?>\s*){2,}/g, '<br>');
-}
-
-function findChapter(doc, keywords) {
-    let links = doc.select("a");
-    for (let i = 0; i < links.size(); i++) {
-        let link = links.get(i);
-        let text = link.text().trim().toLowerCase();
-        let href = link.attr("href");
-        
-        if (href && keywords.some(k => text.includes(k.toLowerCase()))) {
-            return fixUrl(href);
-        }
-    }
-    return null;
-}
-
-function fixUrl(url) {
-    if (!url) return null;
-    if (url.startsWith("http")) return url;
-    return "https://www.tvtruyen.com" + (url.startsWith("/") ? url : "/" + url);
 }

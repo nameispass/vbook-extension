@@ -3,8 +3,17 @@ function execute(url) {
     if (res.ok) {
         let doc = res.html();
         
-        let name = doc.select("h1").text() || url.split("/").pop().replace(".html", "").replace(/-/g, " ");
-        let cover = doc.select("img").first().attr("src") || "";
+        let name = "Truyện TVTruyen";
+        let titleElem = doc.select("h1, h2, .title, .story-title");
+        if (titleElem.size() > 0) {
+            name = titleElem.first().text().trim();
+        }
+        
+        let cover = "";
+        let imgs = doc.select("img");
+        if (imgs.size() > 0) {
+            cover = imgs.first().attr("src") || "";
+        }
         
         return Response.success({
             name: name,
@@ -20,7 +29,7 @@ function execute(url) {
 }
 
 function fixUrl(url) {
-    if (!url) return "";
+    if (!url || url.trim() === "") return "";
     if (url.startsWith("http")) return url;
     return "https://www.tvtruyen.com" + (url.startsWith("/") ? url : "/" + url);
 }

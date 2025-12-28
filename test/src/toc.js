@@ -4,33 +4,48 @@ function execute(url) {
         let doc = res.html();
         let data = [];
         
-        // Tìm chapters
-        let links = doc.select("a[href*='chuong'], a[href*='chapter'], a[href*='chap']");
+        // Tìm chapters - cách đơn giản
+        let links = doc.select("a");
         
-        if (links.size() === 0) {
-            // Tìm link có text "Chương"
-            links = doc.select("a").filter(e => e.text().includes("Chương"));
-        }
-        
-        links.each((i, link) => {
+        for (let i = 0; i < links.size(); i++) {
+            let link = links.get(i);
             let href = link.attr("href");
             let text = link.text().trim();
-            if (href && text) {
+            
+            // Lọc chapter
+            if (href && text && 
+                (href.includes("chuong") || href.includes("chapter") || 
+                 text.includes("Chương") || text.match(/Chap\.?\s*\d+/i))) {
+                
                 data.push({
                     name: text,
                     url: fixUrl(href),
                     host: "https://www.tvtruyen.com"
                 });
             }
-        });
+        }
+        
+        // Sắp xếp nếu có số chapter
+        if (data.length > 0) {
+            data.sort((a, b) => {
+                let numA = extractChapterNumber(a.name);
+                let numB = extractChapterNumber(b.name);
+                return numA - numB;
+            });
+        }
         
         return Response.success(data);
     }
     return null;
 }
 
+function extractChapterNumber(text) {
+    let match = text.match(/(\d+)/);
+    return match ? parseInt(match[1]) : 0;
+}
+
 function fixUrl(url) {
-    if (!url) return "";
+    if (!url || url.trim() === "") return "";
     if (url.startsWith("http")) return url;
     return "https://www.tvtruyen.com" + (url.startsWith("/") ? url : "/" + url);
 }

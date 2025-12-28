@@ -5,8 +5,6 @@ function execute(keyword, page) {
     let res = fetch(url);
     
     if (res.ok) {
-        // Dùng gen.js để xử lý kết quả tìm kiếm
-        // Vì cấu trúc có thể giống nhau
         let doc = res.html();
         let data = [];
         
@@ -35,7 +33,7 @@ function execute(keyword, page) {
 }
 
 function fixUrl(url) {
-    if (!url) return "";
+    if (!url || url.trim() === "") return "";
     if (url.startsWith("http")) return url;
     return "https://www.tvtruyen.com" + (url.startsWith("/") ? url : "/" + url);
 }
