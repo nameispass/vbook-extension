@@ -16,11 +16,11 @@
       "locale": "vi_VN"
     },
     {
-      "name": "Test",
+      "name": "TVTRUYEN",
       "author": "nameispass",
       "path": "https://raw.githubusercontent.com/nameispass/vbook-extension/main/test/plugin.zip",
-      "version": 10,
-      "source": "https://truyenfull.vision",
+      "version": 1,
+      "source": "https://www.tvtruyen.com",
       "icon": "https://raw.githubusercontent.com/nameispass/vbook-extension/main/test/icon.png",
       "description": "Đọc truyện trên trang test",
       "type": "novel",
