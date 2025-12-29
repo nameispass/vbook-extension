@@ -7,40 +7,36 @@ function execute(url) {
     });
 
     if (res.ok) {
-        let text = res.text(); // Lấy text thô trước
+        let text = res.text();
         let content = "";
 
-        // --- XỬ LÝ JSON (FIX LỖI HIỂN THỊ NGOẶC NHỌN {}) ---
-        // Nếu text bắt đầu bằng {, khả năng cao là JSON
+        // --- BƯỚC 1: XỬ LÝ JSON ---
         if (text.trim().startsWith("{")) {
             try {
                 let json = JSON.parse(text);
-                // TVTruyen thường trả về json.content hoặc json.data.content
+                // Thử tất cả các key có thể chứa nội dung
                 if (json.content) content = json.content;
                 else if (json.data && json.data.content) content = json.data.content;
+                else if (json.data) content = json.data; // Trường hợp data chính là content
                 
-                // Nếu JSON rỗng (như ảnh 6d1de0), báo lỗi
-                if (!content) {
-                    return Response.success({
-                        content: "<p>Nội dung chương này đang bị lỗi từ phía server (Trả về rỗng). Vui lòng thử chương khác.</p>",
-                        host: "https://www.tvtruyen.com"
-                    });
-                }
             } catch (e) {
-                // Nếu parse lỗi, dùng regex trích xuất thô
+                // Nếu parse lỗi -> Có thể là HTML thường bị nhầm
                 let match = text.match(/"content"\s*:\s*"([^"]+)"/);
                 if (match) content = match[1];
-                else content = text; // Fallback dùng nguyên text
             }
-        } else {
-            // Nếu là HTML thường
+        } 
+        
+        // --- BƯỚC 2: XỬ LÝ HTML THƯỜNG (Nếu bước 1 thất bại) ---
+        if (!content) {
             let doc = res.html();
             if (doc) {
                 // Xóa rác
                 doc.select(".modal, #report_modal, .comment-box, form, .ads").remove();
-                let el = doc.select("#content, .content-hienthi, .chapter-c").first();
+                
+                let el = doc.select("#content, .content-hienthi, .chapter-c, .truyen-text").first();
+                
+                // Fallback tìm div to nhất
                 if (!el) {
-                     // Tìm div to nhất
                      let divs = doc.select("div");
                      let max = 0;
                      for(let i=0; i<divs.size(); i++){
@@ -55,20 +51,20 @@ function execute(url) {
             }
         }
 
-        // --- GIẢI MÃ HTML & FIX KÝ TỰ LẠ (\n, \/div) ---
+        // --- BƯỚC 3: GIẢI MÃ & LÀM SẠCH ---
         if (content) {
-            // Xử lý các ký tự escape của JSON
-            content = content.replace(/\\n/g, "<br>");  // Biến \n thành xuống dòng
-            content = content.replace(/\\t/g, " ");     // Biến \t thành khoảng trắng
-            content = content.replace(/\\\//g, "/");    // Biến \/ thành /
-            content = content.replace(/\\"/g, '"');     // Biến \" thành "
+            // Giải mã ký tự JSON escape
+            content = content.replace(/\\n/g, "<br>");
+            content = content.replace(/\\t/g, " ");
+            content = content.replace(/\\\//g, "/");
+            content = content.replace(/\\"/g, '"');
             content = content.replace(/\\r/g, "");
 
-            // Xóa thẻ rác còn sót lại
+            // Xóa rác HTML
             content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
             content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
-            content = content.replace(/<\/div>/gi, ""); // Xóa thẻ đóng div thừa thãi
-            content = content.replace(/<div[^>]*>/gi, "<br>"); // Biến thẻ mở div thành xuống dòng cho thoáng
+            content = content.replace(/<\/div>/gi, ""); // Xóa thẻ đóng div thừa
+            content = content.replace(/<div[^>]*>/gi, "<br>"); // Div -> xuống dòng
 
             return Response.success({
                 content: content,
