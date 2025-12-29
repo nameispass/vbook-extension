@@ -3,22 +3,24 @@ function execute(url) {
     if (res.ok) {
         let doc = res.html();
         
-        // 1. Chọn vùng nội dung chính xác
-        // TVTruyen thường để nội dung trong #content hoặc .content-hienthi
-        let contentEl = doc.select("#content, .content-hienthi").first();
+        // Tìm vùng nội dung
+        let contentEl = doc.select("#content, .content-hienthi, .chapter-c").first();
         
         if (contentEl) {
-            // 2. Xóa rác (Quảng cáo, Logo, Script) TRƯỚC khi lấy html
-            // Tuyệt đối không dùng .parent(), chỉ dùng .select().remove()
+            // Xóa rác trước khi lấy HTML
             contentEl.select("script, iframe, style, .ads, .google-auto-placed, div[style*='display:none']").remove();
-            contentEl.select("a[href*='tvtruyen'], .logo-truyen").remove(); // Xóa dòng quảng cáo tên web
+            contentEl.select("a[href*='tvtruyen'], .logo-truyen").remove();
 
             let html = contentEl.html();
             
-            // 3. Xử lý text rác bằng Regex (nếu còn sót)
-            // Xóa các dòng text vô nghĩa hoặc svg rác
-            html = html.replace(/<svg[^>]*>.*?<\/svg>/gsi, "");
+            // --- KHẮC PHỤC LỖI "invalid flag 's'" TẠI ĐÂY ---
+            // Thay vì dùng /.../gsi (gây lỗi), ta dùng /.../gi kết hợp [\s\S]
+            // [\s\S] nghĩa là: khớp ký tự khoảng trắng HOẶC không phải khoảng trắng -> Tức là khớp TẤT CẢ
             
+            html = html.replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, "");
+            html = html.replace(/<defs[^>]*>[\s\S]*?<\/defs>/gi, "");
+            html = html.replace(/&nbsp;/g, " "); // Thay thế khoảng trắng đặc biệt
+
             return Response.success({
                 content: html,
                 next: null,

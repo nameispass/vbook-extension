@@ -1,42 +1,63 @@
 function execute(url) {
-    let res = fetch(url);
-    if (res.ok) {
-        let doc = res.html();
-        let data = [];
+    let data = [];
+    let nextUrl = url;
+    
+    // Giới hạn lặp 50 trang để tránh treo app nếu web lỗi vòng lặp vô tận
+    // Mỗi trang 50 chương -> 50 trang = 2500 chương (đủ cho hầu hết truyện)
+    for (let i = 0; i < 50; i++) {
+        let res = fetch(nextUrl);
+        if (!res.ok) break;
         
-        // Chọn vùng danh sách chương cụ thể (thường là #list-chapter hoặc .list-chapter)
-        // Kết hợp chọn thẻ 'a' bên trong
+        let doc = res.html();
+        
+        // 1. Lấy danh sách chương ở trang hiện tại
         let links = doc.select("#list-chapter a, .list-chapter a, .list-chapters a");
+        let hasNewChapter = false;
 
-        for (let i = 0; i < links.size(); i++) {
-            let link = links.get(i);
+        for (let j = 0; j < links.size(); j++) {
+            let link = links.get(j);
             let text = link.text().trim();
             let href = link.attr("href");
 
-            // --- BỘ LỌC QUAN TRỌNG ---
-            // 1. Phải có link và text
-            // 2. Text không được là số thuần (để loại bỏ phân trang 1, 2, 3...)
-            // 3. Link không chứa từ khóa "page=" (để loại bỏ link chuyển trang)
+            // Bộ lọc loại bỏ link rác/phân trang
             if (href && text && isNaN(text) && !href.includes("page=")) {
                 data.push({
                     name: text,
                     url: fixUrl(href),
                     host: "https://www.tvtruyen.com"
                 });
+                hasNewChapter = true;
             }
         }
         
-        // Sắp xếp lại nếu cần (thường TVTruyen để mới nhất lên đầu, ta cần cũ nhất lên đầu)
-        if (data.length > 0) {
-             // Kiểm tra nếu chương đầu tiên số lớn hơn chương cuối cùng -> Đảo ngược
-             let first = extractNum(data[0].name);
-             let last = extractNum(data[data.length-1].name);
-             if (first > last) data.reverse();
-        }
+        // Nếu trang này không lấy được chương nào -> Dừng luôn
+        if (!hasNewChapter) break;
 
-        return Response.success(data);
+        // 2. Tìm trang tiếp theo (Pagination)
+        // Tìm nút "Trang sau", "»" hoặc nút liền kề nút đang active
+        let nextBtn = doc.select(".pagination .next a, .pagination li.active + li a, a[rel='next']").first();
+        
+        if (nextBtn) {
+            let nextHref = nextBtn.attr("href");
+            if (nextHref && nextHref !== "#" && nextHref !== nextUrl) {
+                nextUrl = fixUrl(nextHref);
+            } else {
+                break; // Không còn link trang sau -> Hết
+            }
+        } else {
+            break; // Không tìm thấy nút phân trang -> Hết
+        }
     }
-    return null;
+    
+    // 3. Sắp xếp lại chương (Nếu cần)
+    if (data.length > 0) {
+         let first = extractNum(data[0].name);
+         let last = extractNum(data[data.length-1].name);
+         // Nếu chương đầu > chương cuối (Mới nhất -> Cũ nhất), đảo ngược lại để đọc từ chương 1
+         if (first > last) data.reverse();
+    }
+
+    return Response.success(data);
 }
 
 function extractNum(text) {
