@@ -2,7 +2,6 @@ function execute(url, page) {
     if (!page) page = 1;
     let fullUrl = url + (url.includes("?") ? "&" : "?") + "page=" + page;
     
-    // Giữ GoogleBot vì nó đang hoạt động tốt cho List
     let res = fetch(fullUrl, {
         headers: {
             "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
@@ -14,10 +13,9 @@ function execute(url, page) {
         let doc = res.html();
         let data = [];
         
-        let allLinks = doc.select("a");
-
-        for (let i = 0; i < allLinks.size(); i++) {
-            let linkEl = allLinks.get(i);
+        let items = doc.select("a");
+        for (let i = 0; i < items.size(); i++) {
+            let linkEl = items.get(i);
             let href = linkEl.attr("href");
             let title = linkEl.text().trim();
             let imgEl = linkEl.select("img").first();
@@ -39,7 +37,6 @@ function execute(url, page) {
                     host: "https://www.tvtruyen.com"
                 });
             }
-            // ĐÃ BỎ GIỚI HẠN SỐ LƯỢNG ĐỂ LOAD HẾT TRANG
         }
         return Response.success(data);
     }
@@ -48,13 +45,12 @@ function execute(url, page) {
 
 function isValid(href, title) {
     if (!href || !title) return false;
-    if (!href.includes(".html")) return false;
+    if (!href.includes(".html")) return false; 
     if (href.length < 10) return false;
     
     let t = title.toLowerCase();
     if (t.includes("truyentv") || t.includes("đọc truyện") || t.includes("liên hệ") || t.includes("trang chủ")) return false;
     if (href.includes("/the-loai/") || href.includes("/tac-gia/") || href.includes("account")) return false;
-
     return true;
 }
 

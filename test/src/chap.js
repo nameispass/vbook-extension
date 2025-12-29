@@ -1,5 +1,5 @@
 function execute(url) {
-    // 1. QUAY LẠI DÙNG GOOGLEBOT (Vì nó không bị chặn kết nối)
+    // 1. DÙNG GOOGLEBOT (Chìa khóa duy nhất để qua tường lửa)
     let res = fetch(url, {
         headers: {
             "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
@@ -11,52 +11,74 @@ function execute(url) {
         let text = res.text();
         let content = "";
 
-        // 2. XỬ LÝ DỮ LIỆU JSON
-        // Tìm chuỗi nằm giữa "content":" và " (hoặc hết chuỗi)
-        // Regex này bỏ qua các dấu ngoặc kép đã được escape (\")
-        let match = text.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+        // 2. BÓC TÁCH NỘI DUNG TỪ JSON (Chiến thuật cắt chuỗi)
+        // Tìm vị trí bắt đầu của "content":"
+        let startKey = '"content":"';
+        let startIndex = text.indexOf(startKey);
         
-        if (match) {
-            content = match[1];
-        } else {
-            // Nếu không khớp regex, có thể dữ liệu là HTML thường
+        if (startIndex >= 0) {
+            // Cắt từ sau dấu : "
+            let temp = text.substring(startIndex + startKey.length);
+            
+            // Tìm dấu ngoặc kép đóng chuỗi (kết thúc nội dung)
+            // Lưu ý: Phải tìm dấu " mà KHÔNG bị escape (tức là không phải \")
+            // Cách đơn giản nhất: Tìm chuỗi `","` (thường là key tiếp theo như "host" hoặc "next")
+            let endIndex = temp.indexOf('","');
+            if (endIndex === -1) endIndex = temp.lastIndexOf('"'); // Hoặc tìm dấu " cuối cùng
+            
+            if (endIndex > 0) {
+                content = temp.substring(0, endIndex);
+            }
+        } 
+        
+        // Fallback: Nếu không phải JSON, thử lấy HTML thường
+        if (!content) {
             let doc = res.html();
             if (doc) {
                 let el = doc.select("#content, .content-hienthi, .chapter-c").first();
                 if (el) content = el.html();
-                else content = text; // Fallback lấy toàn bộ text nếu không tìm thấy div
             }
         }
 
-        // 3. GIẢI MÃ & DỌN RÁC (QUAN TRỌNG NHẤT)
+        // 3. XỬ LÝ & LÀM SẠCH (QUAN TRỌNG NHẤT)
         if (content) {
-            // Bước A: Giải mã ký tự JSON cơ bản
-            // Thay thế thủ công để an toàn hơn JSON.parse
-            content = content.replace(/\\n/g, "<br>");  // \n -> Xuống dòng
-            content = content.replace(/\\r/g, "");      // \r -> Xóa
-            content = content.replace(/\\t/g, " ");     // \t -> Khoảng trắng
-            content = content.replace(/\\"/g, '"');     // \" -> "
-            content = content.replace(/\\\//g, "/");    // \/ -> /
-            content = content.replace(/\\\\/g, "\\");   // \\ -> \
+            // Bước A: Giải mã ký tự JSON (\n -> xuống dòng, \" -> ")
+            content = content.replace(/\\n/g, "<br>");
+            content = content.replace(/\\r/g, "");
+            content = content.replace(/\\t/g, " ");
+            content = content.replace(/\\"/g, '"');
+            content = content.replace(/\\\//g, "/");
+            content = content.replace(/\\\\/g, "\\");
 
-            // Bước B: Xóa rác HTML (Footer, Quảng cáo, Link rác)
-            // Xóa các div chứa class rác thường gặp
-            content = content.replace(/<div[^>]*class="[^"]*(footer|ads|box-search|top-nav|menu)[^"]*"[^>]*>[\s\S]*?<\/div>/gi, "");
-            
-            // Xóa các dòng link rác cụ thể (như trong ảnh bạn gửi)
-            content = content.replace(/Truyện Full[\s\S]*?Đam Mỹ Sắc/gi, "");
-            content = content.replace(/Điều Khoản[\s\S]*?Bảo Mật/gi, "");
-            content = content.replace(/<ul[^>]*>[\s\S]*?<\/ul>/gi, ""); // Xóa các danh sách ul (thường là menu)
+            // Bước B: Xóa rác Menu/Quảng cáo (Dựa trên ảnh lỗi bạn gửi)
+            // Xóa tất cả các danh sách (ul, li) -> Đây là cái menu "Truyện hot", "Ngôn tình"...
+            content = content.replace(/<ul[^>]*>[\s\S]*?<\/ul>/gi, "");
             content = content.replace(/<li[^>]*>[\s\S]*?<\/li>/gi, "");
-
-            // Bước C: Xóa thẻ Script/Style cứng đầu
-            content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
-            content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
-
-            // Bước D: Thẩm mỹ
-            // Xóa các dòng trống liên tiếp
-            content = content.replace(/(<br>\s*){2,}/gi, "<br>");
             
+            // Xóa các thẻ Link (a) -> Xóa "truyện mới", "thể loại"
+            content = content.replace(/<a[^>]*>[\s\S]*?<\/a>/gi, "");
+
+            // Xóa Footer và các div rác
+            content = content.replace(/<div[^>]*class="[^"]*(footer|ads|box-search|top-nav)[^"]*"[^>]*>[\s\S]*?<\/div>/gi, "");
+            content = content.replace(/Điều Khoản[\s\S]*?Bảo Mật/gi, "");
+            content = content.replace(/Truyện Full[\s\S]*?Đam Mỹ Sắc/gi, "");
+
+            // Bước C: Xóa thẻ Script/Style/SVG
+            content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
+            content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+            content = content.replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, "");
+
+            // Bước D: Thẩm mỹ (Xóa dòng trống)
+            content = content.replace(/(<br>\s*){2,}/gi, "<br><br>");
+
+            // Kiểm tra độ dài nội dung sau khi lọc
+            if (content.length < 50) {
+                 return Response.success({
+                    content: "Nội dung chương ngắn bất thường. Có thể là chương ảnh hoặc bị lỗi lọc.",
+                    host: "https://www.tvtruyen.com"
+                });
+            }
+
             return Response.success({
                 content: content,
                 host: "https://www.tvtruyen.com"
@@ -64,9 +86,8 @@ function execute(url) {
         }
     }
     
-    // Báo lỗi chi tiết nếu vẫn thất bại
     return Response.success({
-        content: "Lỗi tải chương (Mã: " + (res.status || "Unknown") + ").<br>Vui lòng thử lại sau.",
+        content: "Lỗi kết nối (Mã: " + (res.status || "Unknown") + "). Vui lòng thử lại.",
         host: "https://www.tvtruyen.com"
     });
 }
