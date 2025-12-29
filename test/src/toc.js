@@ -9,8 +9,6 @@ function execute(url) {
     if (res.ok) {
         let doc = res.html();
         let data = [];
-        
-        // Lấy tất cả link
         let links = doc.select("a");
         
         for (let i = 0; i < links.size(); i++) {
@@ -19,12 +17,9 @@ function execute(url) {
             let href = link.attr("href");
             
             if (text && href) {
-                // --- BỘ LỌC NGHIÊM NGẶT ---
-                // Chỉ lấy link có chữ "Chương" hoặc "Chap"
+                // Bộ lọc chỉ lấy chương chuẩn
                 if (!text.match(/^(Chương|Chap|Chapter|Hồi)\s*\d+/i)) continue;
-                
-                // Loại bỏ link rác chứa từ khóa bộ lọc
-                if (text.includes("Dưới") || text.includes("Trên") || text.includes("mới")) continue;
+                if (text.includes("Dưới") || text.includes("Trên")) continue;
 
                 data.push({
                     name: text,
@@ -34,11 +29,8 @@ function execute(url) {
             }
         }
         
-        // --- SẮP XẾP SỐ HỌC ---
         if (data.length > 0) {
-            data.sort((a, b) => {
-                return extractNum(a.name) - extractNum(b.name);
-            });
+            data.sort((a, b) => extractNum(a.name) - extractNum(b.name));
             
             // Lọc trùng
             let unique = [];
@@ -51,7 +43,6 @@ function execute(url) {
             }
             return Response.success(unique);
         }
-
         return Response.success(data);
     }
     return null;

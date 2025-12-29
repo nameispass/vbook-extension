@@ -1,5 +1,5 @@
 function execute(url) {
-    // Dùng BingBot (Đã được kiểm chứng là tải được HTML)
+    // 1. Dùng BingBot (Đang hoạt động tốt)
     let res = fetch(url, {
         headers: {
             "User-Agent": "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
@@ -10,68 +10,87 @@ function execute(url) {
     if (res.ok) {
         let text = res.text();
         
-        // 1. XỬ LÝ KÝ TỰ XUỐNG DÒNG (Bí kíp của Code 3)
-        // Thay thế \n thành <br> ngay trên text thô để giữ định dạng
-        text = text.replace(/\\n/g, "<br>"); 
+        // Thay thế xuống dòng để giữ format
+        text = text.replace(/\\n/g, "<br>");
         text = text.replace(/\r?\n/g, "<br>");
-        
+
         let doc = Html.parse(text);
         
-        // 2. DỌN RÁC TOÀN BỘ TRANG (QUAN TRỌNG)
-        // Xóa tất cả các thành phần không phải là nội dung truyện
+        // 2. DANH SÁCH RÁC CẦN XÓA (Cập nhật dựa trên ảnh lỗi của bạn)
         let garbage = [
-            "script", "style", "iframe", "svg", "noscript", "button", "input",
-            ".header", "#header", "header", ".top-nav", ".navbar",
-            ".footer", "#footer", "footer", ".bottom-nav",
-            ".menu", "#menu", "nav", ".navigation", ".bread", ".breadcrumbs",
-            ".ads", ".advertisement", ".banner", ".google-auto-placed",
-            ".comment", ".comment-box", "#comment", ".list-comment",
-            ".modal", "#report_modal", ".popup",
-            ".search", ".box-search",
-            ".sidebar", ".col-md-4", ".right-side", // Cột bên phải
-            ".list-chapter", "#list-chapter", ".pagination", ".trang", // Danh sách chương ở dưới
-            ".setting-box", ".fa", // Icon và setting
-            "a" // Xóa sạch các link (vì trong nội dung truyện chữ không cần link)
+            // Rác kỹ thuật (Gây ra lỗi hiển thị code loằng ngoằng)
+            "script", "style", "iframe", "svg", "path", "defs", "symbol", "noscript",
+            
+            // Rác Modal (Cái khung 'Danh sách chương' bị lẫn vào)
+            "[class*='chapter-modal']", // Xóa tất cả class có chữ chapter-modal
+            ".modal", "#modal", 
+            
+            // Rác điều hướng
+            ".chapter-nav", ".navigation", ".pagination", 
+            ".prev-chapter", ".next-chapter",
+            
+            // Rác Header/Footer/Quảng cáo
+            "header", "footer", ".header", ".footer",
+            ".menu", ".nav", ".top-nav", ".bottom-nav",
+            ".ads", ".banner", ".box-search",
+            
+            // Các nút bấm và link
+            "button", "input", "select", "option", "a"
         ];
         
+        // Thực hiện xóa
         for (let g of garbage) {
             doc.select(g).remove();
         }
         
-        // 3. TÌM NỘI DUNG (MỞ RỘNG)
+        // 3. CHỌN NỘI DUNG
         let content = "";
         
-        // Thử các class chuẩn + class từ gợi ý của bạn (box-chap, article)
-        let el = doc.select("#content, .content-hienthi, .chapter-c, .truyen-text, div.box-chap, article").first();
+        // Ưu tiên tìm vùng nội dung chuẩn
+        let el = doc.select("#content, .content-hienthi, .chapter-c, .truyen-text").first();
         
         if (el) {
             content = el.html();
         } else {
-            // --- CHIẾN THUẬT CUỐI CÙNG: VÉT CẠN BODY ---
-            // Nếu không tìm thấy class nào khớp, lấy luôn thẻ BODY (đã được dọn sạch rác ở bước 2)
-            // Đây là cách đảm bảo 100% không bị trắng trang, trừ khi trang web rỗng
-            content = doc.select("body").html();
+            // Nếu không thấy, lấy Body (đã được dọn sạch rác ở trên)
+            // Lọc tiếp các div rác còn sót lại trong body
+            let body = doc.select("body");
+            
+            // Xóa các div rỗng hoặc div chỉ chứa icon
+            let divs = body.select("div");
+            for(let i=0; i<divs.size(); i++) {
+                let d = divs.get(i);
+                if (d.text().trim().length < 5 && !d.select("img").first()) {
+                    d.remove();
+                }
+            }
+            content = body.html();
         }
 
-        // 4. LÀM SẠCH LẦN CUỐI
+        // 4. LÀM SẠCH TEXT LẦN CUỐI (Regex Cleaner)
         if (content) {
-            // Xóa các dòng text hệ thống sót lại
+            // Xóa tàn dư của các thẻ SVG hoặc code bị lộ thiên
+            content = content.replace(/class="[^"]*"/g, ""); // Xóa attribute class thừa
+            content = content.replace(/viewBox="[^"]*"/g, "");
+            content = content.replace(/d="M[^"]*"/g, ""); // Xóa đường vẽ SVG
+            content = content.replace(/<[^>]*>/g, function(match){
+                // Giữ lại thẻ br, p, b, i, strong, em. Xóa các thẻ lạ khác.
+                if (match.match(/^<\/?(br|p|b|i|strong|em|div)/i)) return match;
+                return ""; 
+            });
+
+            // Xóa text rác
             content = content.replace(/Truyện Full[\s\S]*?Đam Mỹ Sắc/gi, "");
             content = content.replace(/Điều Khoản[\s\S]*?Bảo Mật/gi, "");
-            content = content.replace(/Đọc truyện.*tại.*TVTruyen/gi, "");
-            content = content.replace(/Copyright.*/gi, "");
-            
-            // Format giãn dòng cho dễ đọc
-            content = content.replace(/(<br>\s*){2,}/gi, "<br><br>"); 
-            
-            // Kiểm tra nếu nội dung quá ngắn
-            if (content.length < 50) {
-                 return Response.success("Nội dung quá ngắn. <br>Server trả về: " + text.substring(0, 200));
-            }
+            content = content.replace(/Danh sách chương/gi, ""); // Xóa tiêu đề modal
 
+            // Format đẹp
+            content = content.replace(/(<br>\s*){2,}/gi, "<br><br>");
+            
             return Response.success(content);
         }
     }
     
-    return Response.success("Lỗi kết nối (Mã: " + res.status + ")");
+    // Xử lý lỗi Null Object Reference (Khi mạng lỗi)
+    return Response.success("Lỗi tải chương. Vui lòng thử lại. (Mã: " + (res ? res.status : "Mất kết nối") + ")");
 }
