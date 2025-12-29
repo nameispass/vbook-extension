@@ -1,59 +1,85 @@
 function execute(url) {
-    // Giả lập Chrome Mobile y hệt người dùng thật
+    // 1. Dùng BingBot (Thử thay đổi nhân dạng để tránh bị chặn như GoogleBot/Chrome)
     let res = fetch(url, {
         headers: {
-            "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
-            "Referer": "https://www.tvtruyen.com/",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+            "User-Agent": "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+            "Referer": "https://www.tvtruyen.com/"
         }
     });
 
     if (res.ok) {
-        let text = res.text(); // Lấy dữ liệu thô (Raw Text)
+        let text = res.text(); // Lấy toàn bộ dữ liệu thô
 
-        // --- XỬ LÝ 1: NẾU LÀ JSON (Chứa "content": "...") ---
-        // Web trả về JSON nhưng bên trong lại chứa mã HTML bị escape (\n, \")
-        if (text.includes('"content"')) {
-            // Dùng Regex lấy nội dung trong ngoặc kép
-            // Pattern: "content"\s*:\s*" (lấy mọi thứ cho đến khi gặp dấu " tiếp theo mà không bị escape)
-            let match = text.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-            if (match) {
-                text = match[1];
-                // Giải mã các ký tự đặc biệt của JSON
-                text = text.replace(/\\n/g, "<br>");  // Biến \n thành xuống dòng
-                text = text.replace(/\\r/g, "");
-                text = text.replace(/\\"/g, '"');     // Biến \" thành "
-                text = text.replace(/\\\//g, "/");    // Biến \/ thành /
-                text = text.replace(/\\\\/g, "\\");
+        // 2. XỬ LÝ SƠ BỘ (QUAN TRỌNG)
+        // Biến đổi ngay các ký tự xuống dòng mã hóa thành thẻ <br>
+        text = text.replace(/\\n/g, "<br>");
+        text = text.replace(/\\r/g, "");
+        text = text.replace(/\\t/g, " ");
+        text = text.replace(/\\"/g, '"');
+        text = text.replace(/\\\//g, "/");
+
+        // 3. CHIẾN THUẬT TÌM NỘI DUNG
+        let content = "";
+
+        // Cách A: Tìm trong JSON ("content":"...")
+        // Cắt chuỗi từ "content":" đến "," tiếp theo
+        let startKey = '"content":"';
+        let idx = text.indexOf(startKey);
+        if (idx > -1) {
+            let temp = text.substring(idx + startKey.length);
+            // Tìm điểm kết thúc (thường là "," hoặc "})
+            let endIdx = temp.indexOf('","');
+            if (endIdx === -1) endIdx = temp.lastIndexOf('"');
+            
+            if (endIdx > 0) {
+                content = temp.substring(0, endIdx);
             }
-        } 
-        // --- XỬ LÝ 2: NẾU LÀ HTML THƯỜNG ---
-        else {
-            // Mẹo của Code 3: Thay thế xuống dòng thực (\n) bằng <br> trước khi parse
-            text = text.replace(/\r?\n/g, "<br>");
         }
 
-        // --- BƯỚC CUỐI: LỌC RÁC & TRẢ VỀ ---
-        // Parse lại text thành HTML để dùng selector dọn rác
-        let doc = Html.parse(text);
-        
-        // Thử lấy div nội dung chính (nếu có cấu trúc HTML)
-        let contentEl = doc.select("#content, .content-hienthi, .chapter-c, .truyen-text").first();
-        let content = contentEl ? contentEl.html() : text; // Nếu không tìm thấy div, dùng nguyên text đã xử lý
-
-        // Dọn dẹp rác
-        content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
-        content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
-        content = content.replace(/<div[^>]*class="[^"]*(footer|ads|box-search|top-nav|menu)[^"]*"[^>]*>[\s\S]*?<\/div>/gi, "");
-        content = content.replace(/<a[^>]*>[\s\S]*?<\/a>/gi, ""); // Xóa link rác
-        content = content.replace(/Truyện Full[\s\S]*?Đam Mỹ Sắc/gi, "");
-
-        // Kiểm tra độ dài
-        if (content.length < 50) {
-            return Response.success("Nội dung chương trống hoặc bị khóa. <br>Vui lòng thử mở bằng trình duyệt.");
+        // Cách B: Nếu không thấy JSON, tìm trong HTML
+        if (!content || content.length < 50) {
+            let doc = Html.parse(text);
+            let el = doc.select("#content, .content-hienthi, .chapter-c, .truyen-text").first();
+            if (el) {
+                content = el.html();
+            } else {
+                // Fallback: Tìm thẻ div to nhất không phải là container
+                let divs = doc.select("div");
+                let max = 0;
+                for(let i=0; i<divs.size(); i++) {
+                    let d = divs.get(i);
+                    let cls = d.attr("class") || "";
+                    if (!cls.includes("container") && !cls.includes("row") && !cls.includes("nav")) {
+                        if (d.text().length > max) {
+                            max = d.text().length;
+                            content = d.html();
+                        }
+                    }
+                }
+            }
         }
 
-        return Response.success(content);
+        // 4. KIỂM TRA & TRẢ KẾT QUẢ
+        if (content && content.length > 100) {
+            // Dọn rác lần cuối
+            content = content.replace(/<div[^>]*class="[^"]*(footer|ads|box-search)[^"]*"[^>]*>[\s\S]*?<\/div>/gi, "");
+            content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
+            content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+            content = content.replace(/Truyện Full[\s\S]*?Đam Mỹ Sắc/gi, "");
+            
+            return Response.success(content);
+        } else {
+            // --- CHẾ ĐỘ DEBUG (QUAN TRỌNG) ---
+            // Nếu không tìm thấy nội dung, in ra 200 ký tự đầu tiên của trang web
+            // để xem server đang trả về cái gì (Cloudflare? Đăng nhập? Lỗi server?)
+            let debugInfo = text.substring(0, 300).replace(/</g, "&lt;");
+            
+            return Response.success({
+                content: "<b>Không lấy được nội dung.</b><br><br><b>Server trả về:</b><br>" + debugInfo,
+                host: "https://www.tvtruyen.com"
+            });
+        }
     }
-    return null;
+
+    return Response.success("Lỗi kết nối: " + (res.status || "Unknown"));
 }
