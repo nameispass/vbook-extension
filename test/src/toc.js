@@ -3,17 +3,18 @@ function execute(url) {
     if (res.ok) {
         let doc = res.html();
         let data = [];
-        let links = doc.select("a");
         
+        // Chỉ chọn thẻ 'a' nằm trong khu vực danh sách chương
+        // TVTruyen thường cấu trúc là .list-chapter li a hoặc #list-chapter .row a
+        let listContainer = doc.select(".list-chapter, #list-chapter, .list-chapters");
+        let links = listContainer.select("a");
+
         for (let i = 0; i < links.size(); i++) {
             let link = links.get(i);
             let href = link.attr("href");
             let text = link.text().trim();
-            
-            // Lọc link chương
-            if (href && text && 
-                (text.includes("Chương") || text.match(/Chap\.?\s*\d+/i) || href.includes("chuong-"))) {
-                
+
+            if (href && text) {
                 data.push({
                     name: text,
                     url: fixUrl(href),
@@ -21,35 +22,23 @@ function execute(url) {
                 });
             }
         }
-        
-        // SẮP XẾP LẠI DANH SÁCH CHƯƠNG
-        // Nếu danh sách lộn xộn, sửa logic trên. Hoặc sắp xếp tại đây.
-        // Cách đơn giản: Trích số chương từ tên và sắp xếp.
+
+        // TVTruyen thường xếp chương Mới nhất lên đầu, cần đảo ngược lại để đọc từ đầu
+        // Nếu trang web xếp từ 1->1000 rồi thì bỏ dòng .reverse() này đi
         if (data.length > 0) {
-            data.sort(function(a, b) {
-                let numA = extractChapterNumber(a.name);
-                let numB = extractChapterNumber(b.name);
-                return numA - numB;
-            });
+             // Kiểm tra logic đảo ngược: nếu chương đầu tiên trong list là chương lớn, thì đảo ngược
+             let firstChap = extractChapterNumber(data[0].name);
+             let lastChap = extractChapterNumber(data[data.length - 1].name);
+             if (firstChap > lastChap) {
+                 data.reverse();
+             }
         }
-        
-        // Tạo danh sách test nếu không tìm thấy chương
-        if (data.length === 0) {
-            for (let i = 1; i <= 5; i++) {
-                data.push({
-                    name: "Chương " + i,
-                    url: url.replace(".html", "/chuong-" + i + ".html"),
-                    host: "https://www.tvtruyen.com"
-                });
-            }
-        }
-        
+
         return Response.success(data);
     }
     return null;
 }
 
-// Hàm hỗ trợ: Trích xuất số chương từ tên
 function extractChapterNumber(chapterName) {
     let match = chapterName.match(/(\d+)/);
     return match ? parseInt(match[1]) : 0;

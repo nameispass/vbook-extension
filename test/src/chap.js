@@ -2,37 +2,35 @@ function execute(url) {
     let res = fetch(url);
     if (res.ok) {
         let doc = res.html();
-        let content = "";
-        let selectors = [".chapter-content", ".content", "article", "div"];
         
-        // Tìm phần tử chứa nội dung có nhiều text nhất
-        for (let j = 0; j < selectors.length; j++) {
-            let elements = doc.select(selectors[j]);
-            for (let i = 0; i < elements.size(); i++) {
-                let elem = elements.get(i);
-                let html = elem.html();
-                if (html && html.length > 200) {
-                    content = html;
-                    break;
-                }
-            }
-            if (content) break;
+        // TVTruyen thường dùng class này cho nội dung
+        let contentElement = doc.select(".content-hienthi");
+        
+        // Fallback nếu không tìm thấy class trên
+        if (!contentElement || contentElement.size() === 0) {
+            contentElement = doc.select("#content");
         }
-        
-        if (!content) {
-            content = "<p>Nội dung đang được cập nhật...</p>";
+
+        if (contentElement.size() > 0) {
+            let elem = contentElement.get(0);
+            
+            // Xóa các thành phần rác thường gặp trong content
+            elem.select("script, style, iframe, .ads, .google-auto-placed, div[style*='display:none']").remove();
+            
+            // Xóa các dòng text quảng cáo nếu có
+            let content = elem.html();
+
+            // Làm sạch các thẻ SVG/Path rác như trong ảnh lỗi của bạn
+            content = content.replace(/<svg[^>]*>.*?<\/svg>/gsi, "");
+            content = content.replace(/<defs[^>]*>.*?<\/defs>/gsi, "");
+            
+            return Response.success({
+                content: content,
+                next: null, // vbook tự động xử lý next/prev dựa trên danh sách chương
+                prev: null,
+                host: "https://www.tvtruyen.com"
+            });
         }
-        
-        // Làm sạch đơn giản
-        content = content.replace(/<script[^>]*>.*?<\/script>/gi, '');
-        content = content.replace(/<iframe[^>]*>.*?<\/iframe>/gi, '');
-        
-        return Response.success({
-            content: content,
-            next: null,
-            prev: null,
-            host: "https://www.tvtruyen.com"
-        });
     }
     return null;
 }
