@@ -1,8 +1,7 @@
 function execute(url) {
-    // Dùng GoogleBot để đồng bộ
     let res = fetch(url, {
         headers: {
-            "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+            "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
             "Referer": "https://www.tvtruyen.com/"
         }
     });
@@ -11,7 +10,7 @@ function execute(url) {
         let doc = res.html();
         let data = [];
         
-        // Chọn tất cả thẻ a
+        // Lấy tất cả link
         let links = doc.select("a");
         
         for (let i = 0; i < links.size(); i++) {
@@ -20,28 +19,27 @@ function execute(url) {
             let text = link.text().trim();
             
             if (href && text) {
-                // --- BỘ LỌC CHƯƠNG ---
-                let lowerText = text.toLowerCase();
-                
-                // 1. Phải chứa số
+                // --- BỘ LỌC LINK RÁC ---
+                // 1. Phải có số trong tên
                 if (!text.match(/\d+/)) continue;
                 
-                // 2. Phải chứa từ khóa chương
-                if (!lowerText.includes("chương") && !lowerText.includes("chap")) continue;
-                
-                // 3. LOẠI BỎ RÁC PHÂN LOẠI (Nguyên nhân gây lỗi ảnh 2)
-                if (lowerText.includes("dưới") || lowerText.includes("trên") || lowerText.includes("từ")) continue;
-                if (lowerText.includes("mới nhất") || lowerText.includes("đọc tiếp")) continue;
+                // 2. Loại bỏ các dòng filter (Dưới..., Trên..., Mới nhất...)
+                let t = text.toLowerCase();
+                if (t.includes("dưới") || t.includes("trên") || t.includes("từ") || t.includes("đọc tiếp")) continue;
+                if (t.includes("mới nhất") || t.includes("cũ nhất")) continue;
 
-                data.push({
-                    name: text,
-                    url: fixUrl(href),
-                    host: "https://www.tvtruyen.com"
-                });
+                // 3. Chỉ lấy link có từ khóa chương/chap (an toàn nhất)
+                if (t.includes("chương") || t.includes("chap") || t.includes("hồi")) {
+                    data.push({
+                        name: text,
+                        url: fixUrl(href),
+                        host: "https://www.tvtruyen.com"
+                    });
+                }
             }
         }
         
-        // --- THUẬT TOÁN SẮP XẾP SỐ HỌC ---
+        // --- SẮP XẾP SỐ HỌC (FIX LỖI THỨ TỰ) ---
         if (data.length > 0) {
             data.sort((a, b) => {
                 let numA = extractNum(a.name);
@@ -49,16 +47,16 @@ function execute(url) {
                 return numA - numB;
             });
             
-            // Xóa chương trùng lặp (nếu có)
-            let uniqueData = [];
-            let seenUrl = new Set();
-            for (let item of data) {
-                if (!seenUrl.has(item.url)) {
-                    seenUrl.add(item.url);
-                    uniqueData.push(item);
+            // Lọc trùng lặp
+            let unique = [];
+            let seen = new Set();
+            for(let item of data) {
+                if(!seen.has(item.url)) {
+                    seen.add(item.url);
+                    unique.push(item);
                 }
             }
-            return Response.success(uniqueData);
+            return Response.success(unique);
         }
 
         return Response.success(data);
@@ -66,12 +64,9 @@ function execute(url) {
     return null;
 }
 
-// Hàm tách số chuẩn: "Chương 10: Tiêu đề" -> lấy số 10
 function extractNum(text) {
-    // Regex lấy số đầu tiên xuất hiện trong chuỗi
-    let match = text.match(/(\d+)/); 
-    if (match) return parseInt(match[1]);
-    return 999999; // Nếu không tìm thấy số, đẩy xuống cuối
+    let match = text.match(/(\d+)/);
+    return match ? parseInt(match[1]) : 0;
 }
 
 function fixUrl(url) {
