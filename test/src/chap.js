@@ -1,7 +1,7 @@
 function execute(url) {
     let res = fetch(url, {
         headers: {
-            "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G980F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.101 Mobile Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
             "Referer": "https://www.tvtruyen.com/"
         }
     });
@@ -10,61 +10,56 @@ function execute(url) {
         let text = res.text();
         let content = "";
 
-        // --- BƯỚC 1: XỬ LÝ JSON ---
-        if (text.trim().startsWith("{")) {
-            try {
-                let json = JSON.parse(text);
-                // Thử tất cả các key có thể chứa nội dung
-                if (json.content) content = json.content;
-                else if (json.data && json.data.content) content = json.data.content;
-                else if (json.data) content = json.data; // Trường hợp data chính là content
-                
-            } catch (e) {
-                // Nếu parse lỗi -> Có thể là HTML thường bị nhầm
-                let match = text.match(/"content"\s*:\s*"([^"]+)"/);
-                if (match) content = match[1];
-            }
-        } 
+        // --- CHIẾN THUẬT 1: BÓC TÁCH JSON BẰNG REGEX (Mạnh hơn JSON.parse) ---
+        // Tìm chuỗi "content":"..." bất kể cấu trúc xung quanh
+        // Regex này bắt được nội dung nằm giữa "content":" và " tiếp theo, xử lý cả ký tự escape
+        let match = text.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/);
         
-        // --- BƯỚC 2: XỬ LÝ HTML THƯỜNG (Nếu bước 1 thất bại) ---
-        if (!content) {
+        if (match) {
+            content = match[1]; // Lấy nội dung bên trong dấu ngoặc kép
+        } else {
+            // --- CHIẾN THUẬT 2: NẾU KHÔNG PHẢI JSON, XỬ LÝ HTML ---
+            // Đôi khi Googlebot lại nhận được HTML thường
+            content = text;
+            // Xóa rác HTML nếu cần thiết (như code cũ)
+            content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+            content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
+            
+            // Tìm div nội dung nếu là HTML
             let doc = res.html();
             if (doc) {
-                // Xóa rác
-                doc.select(".modal, #report_modal, .comment-box, form, .ads").remove();
-                
-                let el = doc.select("#content, .content-hienthi, .chapter-c, .truyen-text").first();
-                
-                // Fallback tìm div to nhất
-                if (!el) {
-                     let divs = doc.select("div");
-                     let max = 0;
-                     for(let i=0; i<divs.size(); i++){
-                         let d = divs.get(i);
-                         if(d.text().length > max && !d.attr("class").includes("container")) {
-                             max = d.text().length;
-                             el = d;
-                         }
-                     }
-                }
-                if (el) content = el.html();
+                 let el = doc.select("#content, .content-hienthi, .chapter-c").first();
+                 if (el) content = el.html();
             }
         }
 
-        // --- BƯỚC 3: GIẢI MÃ & LÀM SẠCH ---
+        // --- CHIẾN THUẬT 3: GIẢI MÃ KÝ TỰ (QUAN TRỌNG) ---
         if (content) {
-            // Giải mã ký tự JSON escape
-            content = content.replace(/\\n/g, "<br>");
-            content = content.replace(/\\t/g, " ");
-            content = content.replace(/\\\//g, "/");
-            content = content.replace(/\\"/g, '"');
+            // Xử lý các ký tự \n, \t, \" do JSON trả về
+            // JSON.parse tự làm việc này, nhưng nếu dùng Regex ta phải tự làm
+            try {
+                // Mẹo: Dùng JSON.parse để giải mã chuỗi string đơn lẻ
+                content = JSON.parse('"' + content + '"');
+            } catch (e) {
+                // Nếu lỗi, giải mã thủ công
+                content = content.replace(/\\n/g, "<br>");
+                content = content.replace(/\\t/g, " ");
+                content = content.replace(/\\"/g, '"');
+                content = content.replace(/\\\//g, "/");
+            }
+            
+            // Dọn rác lần cuối
             content = content.replace(/\\r/g, "");
+            content = content.replace(/<div[^>]*>/gi, "");
+            content = content.replace(/<\/div>/gi, "<br>");
 
-            // Xóa rác HTML
-            content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
-            content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
-            content = content.replace(/<\/div>/gi, ""); // Xóa thẻ đóng div thừa
-            content = content.replace(/<div[^>]*>/gi, "<br>"); // Div -> xuống dòng
+            // Kiểm tra nếu nội dung quá ngắn -> Báo lỗi cụ thể
+            if (content.length < 50) {
+                 return Response.success({
+                    content: "Nội dung chương quá ngắn hoặc bị lỗi tải. <br>Dữ liệu thô: " + content.substring(0, 100),
+                    host: "https://www.tvtruyen.com"
+                });
+            }
 
             return Response.success({
                 content: content,
@@ -72,5 +67,10 @@ function execute(url) {
             });
         }
     }
-    return null;
+    
+    // Thay vì trả về null (gây lỗi app), trả về thông báo lỗi để bạn biết server phản hồi gì
+    return Response.success({
+        content: "Lỗi kết nối đến server (Mã lỗi: " + res.code + "). Vui lòng thử lại sau.",
+        host: "https://www.tvtruyen.com"
+    });
 }

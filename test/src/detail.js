@@ -1,32 +1,34 @@
 function execute(url) {
     let res = fetch(url, {
         headers: {
-             "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G980F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.101 Mobile Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
         }
     });
 
     if (res.ok) {
         let doc = res.html();
-        if (!doc) return null;
         
-        // Selector chính xác cho TVTruyen
-        // Tìm h1 có class title, hoặc h1 bất kỳ nằm trong main content
-        let name = doc.select("h1.title, .truyen-title, .col-truyen-main h1").text().trim();
+        let name = doc.select("h1.title, .truyen-title, h1").text().trim();
+        let cover = doc.select(".book-thumb img, .info-holder img, .col-info img, .img-thumbnail").attr("src");
+        let author = doc.select(".info-holder .author, .tac-gia a, .list-info .author").text().trim();
         
-        // Nếu không tìm thấy, lấy thẻ meta title nhưng cắt bỏ phần đuôi " - TVTruyen"
-        if (!name) {
-             name = doc.select("title").text().replace(/\s*-\s*TVTruyen.*/i, "").trim();
+        // --- CẬP NHẬT SELECTOR MÔ TẢ ---
+        // Thử nhiều class khác nhau
+        let description = doc.select(".desc-text, .truyen-info-desc, .gioi-thieu, .story-detail-content, #tab-1").html();
+        
+        // Làm sạch mô tả
+        if (description) {
+            description = description.replace(/<a[^>]*>.*?<\/a>/g, ""); // Xóa link rác trong mô tả
+            description = description.replace(/\n/g, "<br>");
+        } else {
+            description = "Chưa có mô tả.";
         }
 
-        let cover = doc.select(".book-thumb img, .info-holder img, .col-info img").attr("src");
-        let author = doc.select(".info-holder .author, .tac-gia a, .list-info .author").text().trim();
-        let description = doc.select(".desc-text, .truyen-info-desc, .gioi-thieu").text().trim();
-
         return Response.success({
-            name: name || "Chưa cập nhật tên",
+            name: name,
             cover: fixUrl(cover),
             author: author || "Đang cập nhật",
-            description: description || "Không có mô tả",
+            description: description,
             detail: "TVTruyen",
             host: "https://www.tvtruyen.com"
         });
