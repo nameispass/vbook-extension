@@ -1,29 +1,33 @@
 function execute(url) {
+    // Dùng GoogleBot để đồng bộ với danh sách
     let res = fetch(url, {
         headers: {
-            "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+            "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+            "Referer": "https://www.tvtruyen.com/"
         }
     });
 
     if (res.ok) {
         let doc = res.html();
         
-        let name = doc.select("h1.title, .truyen-title").text().trim();
-        name = name.replace(/^Đọc truyện /i, "").replace(/ \| TruyenTV.*/i, "").trim();
+        // Nếu doc bị null (do mạng), trả về null để App báo lỗi mạng
+        if (!doc) return null;
+        
+        // Lấy Tên Truyện (Cố gắng tìm mọi ngóc ngách)
+        let name = doc.select("h1").text().trim();
+        if (!name) name = doc.select("title").text().replace("- TVTruyen", "").trim();
+        if (!name) name = "Truyện không tên";
 
-        let cover = doc.select(".book-thumb img, .info-holder img, .col-info img").attr("src");
-        let author = doc.select(".info-holder .author, .tac-gia a").text().trim();
+        // Lấy Ảnh
+        let cover = doc.select(".book-thumb img, .info-holder img, .col-info img, img[src*='upload']").attr("src");
         
-        // Lấy mô tả: Thử thẻ meta trước, sau đó đến các div
+        // Lấy Tác giả
+        let author = doc.select(".info-holder .author, .tac-gia a, .list-info .author").text().trim();
+        
+        // Lấy Mô tả (Ưu tiên meta description sạch)
         let description = doc.select("meta[name='description']").attr("content");
-        if (!description || description.length < 50) {
-            description = doc.select(".desc-text, .truyen-info-desc, .gioi-thieu").html();
-        }
-        
-        // Làm sạch mô tả
-        if (description) {
-            description = description.replace(/\n/g, "<br>");
-            description = description.replace(/<a[^>]*>.*?<\/a>/g, "");
+        if (!description || description.length < 20) {
+             description = doc.select(".desc-text, .truyen-info-desc, #tab-1").text();
         }
 
         return Response.success({
@@ -35,6 +39,7 @@ function execute(url) {
             host: "https://www.tvtruyen.com"
         });
     }
+    
     return null;
 }
 
