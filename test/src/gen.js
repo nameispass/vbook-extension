@@ -1,7 +1,5 @@
 function execute(url, page) {
     if (!page) page = 1;
-    
-    // Tạo URL phân trang chuẩn
     let fullUrl = url + (url.includes("?") ? "&" : "?") + "page=" + page;
     
     let res = fetch(fullUrl, {
@@ -15,10 +13,10 @@ function execute(url, page) {
         let doc = res.html();
         let data = [];
         
-        // Chọn vùng danh sách: Hỗ trợ cả dạng Grid (row) và List (list-group)
-        let items = doc.select(".list-truyen .row > div, .col-truyen-main .row > div, .list-group-item");
+        // Tìm vùng chứa truyện
+        let items = doc.select(".list-truyen .row > div, .col-truyen-main .row > div, .list-group-item, .item-truyen");
         
-        // Fallback: Nếu không tìm thấy vùng trên, quét tất cả thẻ A có chứa Ảnh
+        // Fallback mạnh: Nếu không tìm thấy class, tìm mọi thẻ A có ảnh
         if (items.size() === 0) {
             items = doc.select("a:has(img)");
         }
@@ -26,9 +24,8 @@ function execute(url, page) {
         for (let i = 0; i < items.size(); i++) {
             let item = items.get(i);
             
-            // Tìm Link và Ảnh
-            let linkEl = item.select("h3 a, .title a, a").first();
-            // Nếu item chính là thẻ a (trường hợp fallback)
+            let linkEl = item.select("a").first();
+            // Nếu item chính là thẻ a
             if (!linkEl && item.tagName() === "a") linkEl = item;
             
             let imgEl = item.select("img").first();
@@ -37,11 +34,11 @@ function execute(url, page) {
                 let href = linkEl.attr("href");
                 let title = linkEl.text().trim();
                 
-                // Fallback lấy tên từ title hoặc alt ảnh
+                // Fallback tên
                 if (!title) title = linkEl.attr("title");
                 if (!title && imgEl) title = imgEl.attr("alt");
 
-                // Lấy ảnh: Ưu tiên data-src (lazyload)
+                // Lấy ảnh
                 let cover = "https://i.imgur.com/1upCXI1.png";
                 if (imgEl) {
                     cover = imgEl.attr("data-src") || imgEl.attr("src");
@@ -52,13 +49,12 @@ function execute(url, page) {
                         name: title,
                         link: fixUrl(href),
                         cover: fixUrl(cover),
-                        description: item.select(".author, .chapter-text, .text-muted").text().trim() || "TVTruyen",
+                        description: item.select(".author").text().trim() || "TVTruyen",
                         host: "https://www.tvtruyen.com"
                     });
                 }
             }
         }
-        
         return Response.success(data);
     }
     return null;
@@ -66,17 +62,15 @@ function execute(url, page) {
 
 function isValid(href, title) {
     if (!href || !title) return false;
+    // Bỏ link rác
     if (href.length < 5 || href.includes("javascript")) return false;
-    
-    // Loại bỏ các link không phải truyện
     if (href.includes("/the-loai/") || href.includes("/tac-gia/") || href.includes("/tim-kiem")) return false;
     
-    // Loại bỏ các link hệ thống
-    let bad = ["trang chủ", "liên hệ", "đăng nhập", "đăng ký", "xem thêm"];
-    if (bad.includes(title.toLowerCase())) return false;
-    
-    // Loại bỏ link chương nếu lỡ quét nhầm
-    if (title.toLowerCase().startsWith("chương")) return false;
+    // --- BỘ LỌC QUAN TRỌNG (FIX LỖI LOGO) ---
+    // Loại bỏ các tiêu đề là tên trang web
+    let t = title.toLowerCase();
+    if (t.includes("truyentv") || t.includes("đọc truyện chữ") || t.includes("tiểu thuyết online")) return false;
+    if (t.includes("trang chủ") || t.includes("liên hệ")) return false;
 
     return true;
 }
