@@ -1,100 +1,95 @@
 function execute(url, page) {
     if (!page) page = 1;
+    // Xử lý url để thêm page
+    let fullUrl = url + (url.includes("?") ? "&" : "?") + "page=" + page;
     
-    // Xử lý tạo link phân trang
-    let fullUrl = url;
-    if (page > 1) {
-        // Kiểm tra xem url đã có tham số chưa để nối &page= hay ?page=
-        fullUrl = url + (url.includes("?") ? "&" : "?") + "page=" + page;
-    }
-
     let res = fetch(fullUrl);
     if (res.ok) {
         let doc = res.html();
         let data = [];
-
-        // 1. KHOANH VÙNG NỘI DUNG CHÍNH (QUAN TRỌNG)
-        // Chỉ tìm trong cột nội dung chính để tránh lấy nhầm Sidebar/Menu
-        let mainContent = doc.select(".col-truyen-main, .list-truyen, #list-page, .col-content").first();
         
-        // Nếu không tìm thấy vùng chính (phòng hờ web đổi giao diện), dùng tạm cả trang (doc)
-        let searchScope = mainContent ? mainContent : doc;
+        // CHIẾN THUẬT: QUÉT TẤT CẢ THẺ A CÓ CHỨA ẢNH
+        // Tại sao? 
+        // 1. Link truyện luôn có ảnh bìa đi kèm -> Lấy được Cover.
+        // 2. Link sidebar (thể loại) thường chỉ là chữ -> Tự động bị loại bỏ.
+        // 3. Không lo web đổi tên class (như .col-truyen-main hay .list-content).
+        
+        let links = doc.select("a");
+        
+        for (let i = 0; i < links.size(); i++) {
+            let linkEl = links.get(i);
+            let imgEl = linkEl.select("img").first();
 
-        // 2. TÌM CÁC ITEM TRUYỆN
-        // TVTruyen thường dùng cấu trúc: .row (mỗi dòng 1 truyện) hoặc .list-group-item
-        let items = searchScope.select(".row, .list-group-item, .item-truyen");
-
-        for (let i = 0; i < items.size(); i++) {
-            let item = items.get(i);
-            
-            // Tìm thẻ A (Link + Tên) và thẻ Img (Ảnh) BÊN TRONG item
-            let titleEl = item.select("h3 a, .truyen-title a, a").first(); // Ưu tiên tìm trong thẻ h3 trước
-            let imgEl = item.select("img").first();
-
-            if (titleEl) {
-                let link = titleEl.attr("href");
-                let title = titleEl.text().trim();
+            // Chỉ xử lý nếu thẻ Link này có chứa Ảnh bên trong
+            if (imgEl) {
+                let href = linkEl.attr("href");
+                // Lấy ảnh: ưu tiên data-src (lazyload) rồi đến src
+                let cover = imgEl.attr("data-src") || imgEl.attr("src");
                 
-                // Nếu tiêu đề rỗng, thử lấy từ title attribute
-                if (!title) title = titleEl.attr("title");
-                if (!title && imgEl) title = imgEl.attr("alt");
-
-                let cover = "";
-                if (imgEl) {
-                    // Hỗ trợ lấy ảnh lazyload (data-src)
-                    cover = imgEl.attr("data-src") || imgEl.attr("src");
+                // Lấy tên: Ưu tiên alt của ảnh, hoặc title của link
+                let name = imgEl.attr("alt") || linkEl.attr("title");
+                
+                // Nếu tên vẫn rỗng, thử tìm các thẻ tiêu đề bên trong
+                if (!name || name.trim() === "") {
+                    name = linkEl.select("h3, h4, .title").text().trim();
                 }
-                
-                // Nếu cover không có http, tự động fix
-                cover = fixUrl(cover);
-                link = fixUrl(link);
 
-                // 3. BỘ LỌC (FILTER) CHẶN RÁC
-                // Chỉ lấy item thỏa mãn điều kiện là Link Truyện
-                if (isValidStory(link, title)) {
+                // KIỂM TRA HỢP LỆ (Bộ lọc quan trọng)
+                if (isValidStory(href, name, cover)) {
                     data.push({
-                        name: title,
-                        link: link,
-                        cover: cover,
-                        description: item.select(".author, .chapter-text").text().trim() || "TVTruyen", // Lấy thêm tên tác giả hoặc chương mới nhất làm mô tả
+                        name: name.trim(),
+                        link: fixUrl(href),
+                        cover: fixUrl(cover),
+                        description: "TVTruyen",
                         host: "https://www.tvtruyen.com"
                     });
                 }
             }
+            // Giới hạn số lượng để không quá tải nếu trang quá dài
+            if (data.length >= 30) break;
         }
+        
         return Response.success(data);
     }
     return null;
 }
 
-// Hàm kiểm tra xem link có phải là truyện hợp lệ không
-function isValidStory(link, title) {
-    if (!link || !title) return false;
+// Hàm lọc rác: Loại bỏ icon, banner, link thể loại, link user...
+function isValidStory(href, name, cover) {
+    if (!href || !name || !cover) return false;
     
-    // Link quá ngắn hoặc link javascript -> Bỏ
-    if (link.length < 5 || link.includes("javascript")) return false;
-
-    // Link chứa các từ khóa của danh mục/thể loại/tác giả -> Bỏ (đây là nguyên nhân lỗi ảnh 2 của bạn)
-    if (link.includes("/the-loai/") || 
-        link.includes("/tac-gia/") || 
-        link.includes("/quoc-gia/") ||
-        link.includes("/tim-kiem")) {
+    // 1. Loại bỏ các link hệ thống/javascript
+    if (href.length < 5 || href.includes("javascript:")) return false;
+    
+    // 2. Loại bỏ link trỏ về danh mục (nguyên nhân gây lỗi ảnh 2 cũ của bạn)
+    // Lưu ý: Link truyện thường là .html, nhưng link thể loại cũng .html nên phải check từ khóa
+    if (href.includes("/the-loai/") || 
+        href.includes("/tac-gia/") || 
+        href.includes("tim-kiem") || 
+        href.includes("dang-nhap")) {
         return false;
     }
 
-    // Tiêu đề là các từ khóa hệ thống -> Bỏ
-    let badTitles = ["trang chủ", "thể loại", "liên hệ", "đổi mật khẩu", "đăng xuất", "truyện full"];
-    if (badTitles.includes(title.toLowerCase())) return false;
+    // 3. Loại bỏ ảnh rác (Logo, Icon user, Banner quảng cáo)
+    let badImages = ["logo", "icon", "banner", "user", "facebook", "google"];
+    for (let bad of badImages) {
+        if (cover.toLowerCase().includes(bad)) return false;
+    }
+
+    // 4. Loại bỏ tên rác
+    let lowerName = name.toLowerCase();
+    if (lowerName.includes("trang chủ") || lowerName.includes("liên hệ")) return false;
 
     return true;
 }
 
 function fixUrl(url) {
     if (!url || url === "") return "";
-    // Xử lý trường hợp ảnh nằm trong css background url(...)
+    
+    // Xử lý trường hợp ảnh dùng css background-image: url(...)
     if (url.includes("url(")) {
         let match = url.match(/url\(['"]?([^'"]+)['"]?\)/);
-        if (match) url = match[1];
+        if (match) return match[1];
     }
     
     if (url.startsWith("http")) return url;
