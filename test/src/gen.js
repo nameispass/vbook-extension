@@ -1,51 +1,67 @@
 function execute(url, page) {
     if (!page) page = 1;
-    // Xử lý url để thêm page
     let fullUrl = url + (url.includes("?") ? "&" : "?") + "page=" + page;
     
-    let res = fetch(fullUrl);
+    // Thêm User-Agent để tránh bị chặn bởi tường lửa đơn giản
+    let res = fetch(fullUrl, {
+        headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+    });
+
     if (res.ok) {
         let doc = res.html();
         let data = [];
         
-        // CHIẾN THUẬT: QUÉT TẤT CẢ THẺ A CÓ CHỨA ẢNH
-        // Tại sao? 
-        // 1. Link truyện luôn có ảnh bìa đi kèm -> Lấy được Cover.
-        // 2. Link sidebar (thể loại) thường chỉ là chữ -> Tự động bị loại bỏ.
-        // 3. Không lo web đổi tên class (như .col-truyen-main hay .list-content).
+        // DANH SÁCH CÁC LOẠI KHUNG CHỨA (CONTAINER)
+        // Code sẽ thử tìm theo thứ tự ưu tiên: 
+        // 1. List group (dạng danh sách dọc)
+        // 2. Row (dạng lưới)
+        // 3. Các thẻ div có class chứa chữ "col-" (cột)
+        // 4. Nếu không tìm thấy gì, lấy tất cả thẻ <li> hoặc <tr>
         
-        let links = doc.select("a");
+        let elements = doc.select(".list-group-item, .row .col-md-3, .row .col-xs-6, .item-truyen, .col-truyen-main div");
         
-        for (let i = 0; i < links.size(); i++) {
-            let linkEl = links.get(i);
-            let imgEl = linkEl.select("img").first();
+        // Fallback: Nếu selector trên không ra gì, quét thẻ a trực tiếp (chấp nhận rác rồi lọc sau)
+        if (elements.size() === 0) {
+            elements = doc.select("a");
+        }
 
-            // Chỉ xử lý nếu thẻ Link này có chứa Ảnh bên trong
-            if (imgEl) {
-                let href = linkEl.attr("href");
-                // Lấy ảnh: ưu tiên data-src (lazyload) rồi đến src
-                let cover = imgEl.attr("data-src") || imgEl.attr("src");
+        for (let i = 0; i < elements.size(); i++) {
+            let el = elements.get(i);
+            
+            // Tìm thẻ A (Link) trong khung
+            let linkEl = el.tagName() === "a" ? el : el.select("a").first();
+            
+            // Tìm thẻ IMG (Ảnh) trong khung
+            let imgEl = el.select("img").first();
+
+            if (linkEl) {
+                let link = linkEl.attr("href");
+                let name = linkEl.text().trim();
                 
-                // Lấy tên: Ưu tiên alt của ảnh, hoặc title của link
-                let name = imgEl.attr("alt") || linkEl.attr("title");
+                // Nếu tên trong thẻ a rỗng, thử tìm trong title attribute hoặc ảnh
+                if (!name) name = linkEl.attr("title");
+                if (!name && imgEl) name = imgEl.attr("alt");
                 
-                // Nếu tên vẫn rỗng, thử tìm các thẻ tiêu đề bên trong
-                if (!name || name.trim() === "") {
-                    name = linkEl.select("h3, h4, .title").text().trim();
+                // Lấy ảnh: Nếu không có ảnh thật, dùng ảnh mặc định của vbook
+                let cover = "https://i.imgur.com/1upCXI1.png"; // Ảnh default
+                if (imgEl) {
+                    let src = imgEl.attr("data-src") || imgEl.attr("src");
+                    if (src) cover = src;
                 }
 
-                // KIỂM TRA HỢP LỆ (Bộ lọc quan trọng)
-                if (isValidStory(href, name, cover)) {
+                // --- BỘ LỌC DỮ LIỆU ---
+                if (isValidStory(link, name)) {
                     data.push({
-                        name: name.trim(),
-                        link: fixUrl(href),
+                        name: name,
+                        link: fixUrl(link),
                         cover: fixUrl(cover),
-                        description: "TVTruyen",
+                        description: el.text().replace(name, "").trim() || "TVTruyen",
                         host: "https://www.tvtruyen.com"
                     });
                 }
             }
-            // Giới hạn số lượng để không quá tải nếu trang quá dài
             if (data.length >= 30) break;
         }
         
@@ -54,44 +70,31 @@ function execute(url, page) {
     return null;
 }
 
-// Hàm lọc rác: Loại bỏ icon, banner, link thể loại, link user...
-function isValidStory(href, name, cover) {
-    if (!href || !name || !cover) return false;
+function isValidStory(link, name) {
+    if (!link || !name) return false;
+    if (link.length < 5 || link.includes("javascript:")) return false;
     
-    // 1. Loại bỏ các link hệ thống/javascript
-    if (href.length < 5 || href.includes("javascript:")) return false;
-    
-    // 2. Loại bỏ link trỏ về danh mục (nguyên nhân gây lỗi ảnh 2 cũ của bạn)
-    // Lưu ý: Link truyện thường là .html, nhưng link thể loại cũng .html nên phải check từ khóa
-    if (href.includes("/the-loai/") || 
-        href.includes("/tac-gia/") || 
-        href.includes("tim-kiem") || 
-        href.includes("dang-nhap")) {
+    // Loại bỏ các link không phải truyện
+    if (link.includes("/the-loai/") || 
+        link.includes("/tac-gia/") || 
+        link.includes("dang-nhap") || 
+        link.includes("dang-ky")) {
         return false;
     }
-
-    // 3. Loại bỏ ảnh rác (Logo, Icon user, Banner quảng cáo)
-    let badImages = ["logo", "icon", "banner", "user", "facebook", "google"];
-    for (let bad of badImages) {
-        if (cover.toLowerCase().includes(bad)) return false;
-    }
-
-    // 4. Loại bỏ tên rác
-    let lowerName = name.toLowerCase();
-    if (lowerName.includes("trang chủ") || lowerName.includes("liên hệ")) return false;
+    
+    // Loại bỏ các tên hệ thống
+    let badNames = ["trang chủ", "thể loại", "tìm kiếm", "liên hệ", "đọc ngay", "xem thêm"];
+    if (badNames.includes(name.toLowerCase())) return false;
 
     return true;
 }
 
 function fixUrl(url) {
     if (!url || url === "") return "";
-    
-    // Xử lý trường hợp ảnh dùng css background-image: url(...)
     if (url.includes("url(")) {
         let match = url.match(/url\(['"]?([^'"]+)['"]?\)/);
         if (match) return match[1];
     }
-    
     if (url.startsWith("http")) return url;
     if (url.startsWith("//")) return "https:" + url;
     return "https://www.tvtruyen.com" + (url.startsWith("/") ? url : "/" + url);
