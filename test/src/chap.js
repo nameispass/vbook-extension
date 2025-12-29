@@ -3,30 +3,25 @@ function execute(url) {
     if (res.ok) {
         let doc = res.html();
         
-        // TVTruyen thường dùng class này cho nội dung
-        let contentElement = doc.select(".content-hienthi");
+        // 1. Chọn vùng nội dung chính xác
+        // TVTruyen thường để nội dung trong #content hoặc .content-hienthi
+        let contentEl = doc.select("#content, .content-hienthi").first();
         
-        // Fallback nếu không tìm thấy class trên
-        if (!contentElement || contentElement.size() === 0) {
-            contentElement = doc.select("#content");
-        }
+        if (contentEl) {
+            // 2. Xóa rác (Quảng cáo, Logo, Script) TRƯỚC khi lấy html
+            // Tuyệt đối không dùng .parent(), chỉ dùng .select().remove()
+            contentEl.select("script, iframe, style, .ads, .google-auto-placed, div[style*='display:none']").remove();
+            contentEl.select("a[href*='tvtruyen'], .logo-truyen").remove(); // Xóa dòng quảng cáo tên web
 
-        if (contentElement.size() > 0) {
-            let elem = contentElement.get(0);
+            let html = contentEl.html();
             
-            // Xóa các thành phần rác thường gặp trong content
-            elem.select("script, style, iframe, .ads, .google-auto-placed, div[style*='display:none']").remove();
-            
-            // Xóa các dòng text quảng cáo nếu có
-            let content = elem.html();
-
-            // Làm sạch các thẻ SVG/Path rác như trong ảnh lỗi của bạn
-            content = content.replace(/<svg[^>]*>.*?<\/svg>/gsi, "");
-            content = content.replace(/<defs[^>]*>.*?<\/defs>/gsi, "");
+            // 3. Xử lý text rác bằng Regex (nếu còn sót)
+            // Xóa các dòng text vô nghĩa hoặc svg rác
+            html = html.replace(/<svg[^>]*>.*?<\/svg>/gsi, "");
             
             return Response.success({
-                content: content,
-                next: null, // vbook tự động xử lý next/prev dựa trên danh sách chương
+                content: html,
+                next: null,
                 prev: null,
                 host: "https://www.tvtruyen.com"
             });
