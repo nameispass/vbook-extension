@@ -2,9 +2,10 @@ function execute(url, page) {
     if (!page) page = 1;
     let fullUrl = url + (url.includes("?") ? "&" : "?") + "page=" + page;
     
+    // GIẢ DANH GOOGLE BOT (Thường ít bị chặn hơn)
     let res = fetch(fullUrl, {
         headers: {
-            "User-Agent": "Mozilla/5.0 (Linux; Android 10; SM-G980F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.101 Mobile Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
             "Referer": "https://www.tvtruyen.com/"
         }
     });
@@ -12,74 +13,74 @@ function execute(url, page) {
     if (res.ok) {
         let doc = res.html();
         
-        // --- CHỐNG LỖI CRASH (NULL DOC) ---
         if (!doc) {
-            return Response.success([{
-                name: "Lỗi kết nối (Doc null)",
+             return Response.success([{
+                name: "Lỗi: Doc Null",
                 link: "error",
                 cover: "https://i.imgur.com/1upCXI1.png",
-                description: "Không tải được trang web. Vui lòng thử lại.",
+                description: "Không đọc được dữ liệu trang web.",
                 host: "https://www.tvtruyen.com"
             }]);
         }
 
         let data = [];
         
-        // --- CHIẾN THUẬT 1: QUÉT THEO CẤU TRÚC CHUẨN ---
-        let items = doc.select(".list-truyen .row > div, .col-truyen-main .row > div, .list-group-item");
-        
-        // --- CHIẾN THUẬT 2: QUÉT LỎNG (FALLBACK) ---
-        // Nếu chiến thuật 1 không ra gì, quét TẤT CẢ thẻ a có chứa ảnh
-        if (items.size() === 0) {
-            items = doc.select("a:has(img)");
-        }
+        // --- CHIẾN THUẬT VÉT CẠN (Lấy tất cả thẻ A) ---
+        // Không tìm theo class nữa, lấy tất cả link trên trang
+        let allLinks = doc.select("a");
 
-        // --- CHIẾN THUẬT 3: QUÉT SIÊU LỎNG (DESPERATE MODE) ---
-        // Nếu vẫn không có gì, quét tất cả link .html (chấp nhận rác, lọc sau)
-        if (items.size() === 0) {
-            items = doc.select("a[href*='.html']");
-        }
+        for (let i = 0; i < allLinks.size(); i++) {
+            let linkEl = allLinks.get(i);
+            let href = linkEl.attr("href");
+            let title = linkEl.text().trim();
+            let imgEl = linkEl.select("img").first();
 
-        for (let i = 0; i < items.size(); i++) {
-            let item = items.get(i);
-            
-            let linkEl = item.select("a").first();
-            if (!linkEl && item.tagName() === "a") linkEl = item; // Nếu chính item là thẻ a
-            
-            let imgEl = item.select("img").first();
+            // Fallback tên
+            if (!title) title = linkEl.attr("title");
+            if (!title && imgEl) title = imgEl.attr("alt");
 
-            if (linkEl) {
-                let href = linkEl.attr("href");
-                let title = linkEl.text().trim();
-                
-                // Cố gắng tìm tên từ các thuộc tính khác
-                if (!title) title = linkEl.attr("title");
-                if (!title && imgEl) title = imgEl.attr("alt");
+            // Lấy ảnh
+            let cover = "https://i.imgur.com/1upCXI1.png";
+            if (imgEl) cover = imgEl.attr("data-src") || imgEl.attr("src");
 
-                let cover = "https://i.imgur.com/1upCXI1.png";
-                if (imgEl) cover = imgEl.attr("data-src") || imgEl.attr("src");
-
-                if (isValid(href, title)) {
-                    data.push({
-                        name: title,
-                        link: fixUrl(href),
-                        cover: fixUrl(cover),
-                        description: "TVTruyen",
-                        host: "https://www.tvtruyen.com"
-                    });
+            // --- BỘ LỌC CỰC KỲ ĐƠN GIẢN ---
+            // Chỉ cần link có chứa .html và KHÔNG phải link rác
+            if (href && href.includes(".html")) {
+                // Loại bỏ link hệ thống
+                if (!href.includes("/the-loai/") && 
+                    !href.includes("/tac-gia/") && 
+                    !href.includes("tim-kiem") && 
+                    !href.includes("dang-nhap") &&
+                    !href.includes("account")) {
+                    
+                     // Loại bỏ tên rác
+                     let t = title ? title.toLowerCase() : "";
+                     if (!t.includes("trang chủ") && !t.includes("liên hệ") && !t.includes("truyentv")) {
+                         
+                         data.push({
+                            name: title || "Truyện (Không tên)",
+                            link: fixUrl(href),
+                            cover: fixUrl(cover),
+                            description: "TVTruyen",
+                            host: "https://www.tvtruyen.com"
+                        });
+                     }
                 }
             }
-            // Giới hạn 40 truyện để tránh lag
             if (data.length >= 40) break;
         }
 
-        // --- DEBUG: NẾU VẪN TRỐNG, HIỆN THÔNG BÁO ---
+        // --- DEBUG: HIỆN TIÊU ĐỀ TRANG NẾU KHÔNG CÓ TRUYỆN ---
+        // Giúp xác định xem web đang trả về cái gì (VD: "Just a moment..." là bị Cloudflare chặn)
         if (data.length === 0) {
-             return Response.success([{
-                name: "Không tìm thấy truyện nào",
+            let pageTitle = doc.select("title").text();
+            let pageBody = doc.body().text().substring(0, 100); // Lấy 100 ký tự đầu của trang
+            
+            return Response.success([{
+                name: "Không tìm thấy truyện",
                 link: "error",
                 cover: "https://i.imgur.com/1upCXI1.png",
-                description: "Code đã chạy nhưng không khớp selector nào.",
+                description: "Tiêu đề trang nhận được: " + pageTitle + ". Nội dung đầu: " + pageBody,
                 host: "https://www.tvtruyen.com"
             }]);
         }
@@ -87,21 +88,13 @@ function execute(url, page) {
         return Response.success(data);
     }
     
-    return null;
-}
-
-function isValid(href, title) {
-    if (!href || !title) return false;
-    if (href.length < 5 || href.includes("javascript")) return false;
-    // Bỏ link không phải truyện
-    if (href.includes("/the-loai/") || href.includes("/tac-gia/") || href.includes("/tim-kiem")) return false;
-    
-    let t = title.toLowerCase();
-    // Bỏ logo/trang chủ
-    if (t.includes("truyentv") || t.includes("đọc truyện chữ") || t.includes("tiểu thuyết online")) return false;
-    if (t.includes("trang chủ") || t.includes("liên hệ") || t.includes("giới thiệu")) return false;
-    
-    return true;
+    return Response.success([{
+        name: "Lỗi kết nối",
+        link: "error",
+        cover: "https://i.imgur.com/1upCXI1.png",
+        description: "Mã lỗi: " + res.code, // Hiện mã lỗi HTTP (403, 404, 500...)
+        host: "https://www.tvtruyen.com"
+    }]);
 }
 
 function fixUrl(url) {
