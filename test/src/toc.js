@@ -1,7 +1,7 @@
 function execute(url) {
     let res = fetch(url, {
         headers: {
-            "User-Agent": "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+            "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
             "Referer": "https://www.tvtruyen.com/"
         }
     });
@@ -17,7 +17,6 @@ function execute(url) {
             let href = link.attr("href");
             
             if (text && href) {
-                // Bộ lọc chỉ lấy chương chuẩn
                 if (!text.match(/^(Chương|Chap|Chapter|Hồi)\s*\d+/i)) continue;
                 if (text.includes("Dưới") || text.includes("Trên")) continue;
 
@@ -31,8 +30,6 @@ function execute(url) {
         
         if (data.length > 0) {
             data.sort((a, b) => extractNum(a.name) - extractNum(b.name));
-            
-            // Lọc trùng
             let unique = [];
             let seen = new Set();
             for (let item of data) {
