@@ -1,7 +1,7 @@
 function execute(url) {
     let res = fetch(url, {
         headers: {
-            "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
             "Referer": "https://www.tvtruyen.com/"
         }
     });
@@ -15,43 +15,36 @@ function execute(url) {
         
         for (let i = 0; i < links.size(); i++) {
             let link = links.get(i);
-            let href = link.attr("href");
             let text = link.text().trim();
+            let href = link.attr("href");
             
-            if (href && text) {
-                // --- BỘ LỌC LINK RÁC ---
-                // 1. Phải có số trong tên
-                if (!text.match(/\d+/)) continue;
+            if (text && href) {
+                // --- BỘ LỌC NGHIÊM NGẶT ---
+                // Chỉ lấy link có chữ "Chương" hoặc "Chap"
+                if (!text.match(/^(Chương|Chap|Chapter|Hồi)\s*\d+/i)) continue;
                 
-                // 2. Loại bỏ các dòng filter (Dưới..., Trên..., Mới nhất...)
-                let t = text.toLowerCase();
-                if (t.includes("dưới") || t.includes("trên") || t.includes("từ") || t.includes("đọc tiếp")) continue;
-                if (t.includes("mới nhất") || t.includes("cũ nhất")) continue;
+                // Loại bỏ link rác chứa từ khóa bộ lọc
+                if (text.includes("Dưới") || text.includes("Trên") || text.includes("mới")) continue;
 
-                // 3. Chỉ lấy link có từ khóa chương/chap (an toàn nhất)
-                if (t.includes("chương") || t.includes("chap") || t.includes("hồi")) {
-                    data.push({
-                        name: text,
-                        url: fixUrl(href),
-                        host: "https://www.tvtruyen.com"
-                    });
-                }
+                data.push({
+                    name: text,
+                    url: fixUrl(href),
+                    host: "https://www.tvtruyen.com"
+                });
             }
         }
         
-        // --- SẮP XẾP SỐ HỌC (FIX LỖI THỨ TỰ) ---
+        // --- SẮP XẾP SỐ HỌC ---
         if (data.length > 0) {
             data.sort((a, b) => {
-                let numA = extractNum(a.name);
-                let numB = extractNum(b.name);
-                return numA - numB;
+                return extractNum(a.name) - extractNum(b.name);
             });
             
-            // Lọc trùng lặp
+            // Lọc trùng
             let unique = [];
             let seen = new Set();
-            for(let item of data) {
-                if(!seen.has(item.url)) {
+            for (let item of data) {
+                if (!seen.has(item.url)) {
                     seen.add(item.url);
                     unique.push(item);
                 }
@@ -66,7 +59,7 @@ function execute(url) {
 
 function extractNum(text) {
     let match = text.match(/(\d+)/);
-    return match ? parseInt(match[1]) : 0;
+    return match ? parseInt(match[1]) : -1;
 }
 
 function fixUrl(url) {
