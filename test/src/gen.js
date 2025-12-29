@@ -2,6 +2,7 @@ function execute(url, page) {
     if (!page) page = 1;
     let fullUrl = url + (url.includes("?") ? "&" : "?") + "page=" + page;
     
+    // GIỮ NGUYÊN GOOGLEBOT VÌ ĐÃ HOẠT ĐỘNG TỐT
     let res = fetch(fullUrl, {
         headers: {
             "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
@@ -13,11 +14,11 @@ function execute(url, page) {
         let doc = res.html();
         let data = [];
         
-        // Lấy tất cả link .html (Chiến thuật hiệu quả nhất hiện tại)
-        let allLinks = doc.select("a");
+        // Quét link .html (Chiến thuật đã thành công của bạn)
+        let items = doc.select("a");
 
-        for (let i = 0; i < allLinks.size(); i++) {
-            let linkEl = allLinks.get(i);
+        for (let i = 0; i < items.size(); i++) {
+            let linkEl = items.get(i);
             let href = linkEl.attr("href");
             let title = linkEl.text().trim();
             let imgEl = linkEl.select("img").first();
@@ -26,7 +27,7 @@ function execute(url, page) {
             if (!title) title = linkEl.attr("title");
             if (!title && imgEl) title = imgEl.attr("alt");
 
-            // Cố gắng lấy ảnh
+            // Lấy ảnh
             let cover = "https://i.imgur.com/1upCXI1.png";
             if (imgEl) cover = imgEl.attr("data-src") || imgEl.attr("src");
 
@@ -48,13 +49,13 @@ function execute(url, page) {
 
 function isValid(href, title) {
     if (!href || !title) return false;
-    if (!href.includes(".html")) return false; // Chỉ lấy link html
+    if (!href.includes(".html")) return false;
     if (href.length < 10) return false;
     
-    // Lọc rác
     let t = title.toLowerCase();
+    // Lọc bỏ rác hệ thống
     if (t.includes("truyentv") || t.includes("đọc truyện") || t.includes("liên hệ") || t.includes("trang chủ")) return false;
-    if (href.includes("/the-loai/") || href.includes("/tac-gia/") || href.includes("account")) return false;
+    if (href.includes("/the-loai/") || href.includes("/tac-gia/") || href.includes("account") || href.includes("tim-kiem")) return false;
 
     return true;
 }

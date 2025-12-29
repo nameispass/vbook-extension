@@ -10,53 +10,54 @@ function execute(url) {
         let text = res.text();
         let content = "";
 
-        // --- CHIẾN THUẬT 1: BÓC TÁCH JSON BẰNG REGEX (Mạnh hơn JSON.parse) ---
-        // Tìm chuỗi "content":"..." bất kể cấu trúc xung quanh
-        // Regex này bắt được nội dung nằm giữa "content":" và " tiếp theo, xử lý cả ký tự escape
+        // --- BƯỚC 1: BÓC TÁCH JSON ---
+        // Server trả về dạng: {"content": "Nội dung truyện..."}
+        // Ta dùng Regex để lấy nội dung trong ngoặc kép của key "content"
         let match = text.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/);
         
         if (match) {
-            content = match[1]; // Lấy nội dung bên trong dấu ngoặc kép
+            content = match[1]; // Lấy nội dung thô
         } else {
-            // --- CHIẾN THUẬT 2: NẾU KHÔNG PHẢI JSON, XỬ LÝ HTML ---
-            // Đôi khi Googlebot lại nhận được HTML thường
-            content = text;
-            // Xóa rác HTML nếu cần thiết (như code cũ)
-            content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
-            content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
-            
-            // Tìm div nội dung nếu là HTML
+            // Nếu không phải JSON, thử xử lý như HTML thường
             let doc = res.html();
             if (doc) {
-                 let el = doc.select("#content, .content-hienthi, .chapter-c").first();
-                 if (el) content = el.html();
+                let el = doc.select("#content, .content-hienthi, .chapter-c").first();
+                if (el) content = el.html();
             }
         }
 
-        // --- CHIẾN THUẬT 3: GIẢI MÃ KÝ TỰ (QUAN TRỌNG) ---
-        if (content) {
-            // Xử lý các ký tự \n, \t, \" do JSON trả về
-            // JSON.parse tự làm việc này, nhưng nếu dùng Regex ta phải tự làm
+        // --- BƯỚC 2: GIẢI MÃ & LÀM SẠCH (QUAN TRỌNG) ---
+        if (content && content.length > 0) {
+            // 1. Giải mã ký tự escape của JSON (\n, \t, \")
             try {
-                // Mẹo: Dùng JSON.parse để giải mã chuỗi string đơn lẻ
+                // Dùng JSON.parse cho chuỗi string để giải mã chuẩn nhất
                 content = JSON.parse('"' + content + '"');
             } catch (e) {
-                // Nếu lỗi, giải mã thủ công
+                // Fallback thủ công nếu lỗi
                 content = content.replace(/\\n/g, "<br>");
                 content = content.replace(/\\t/g, " ");
                 content = content.replace(/\\"/g, '"');
                 content = content.replace(/\\\//g, "/");
             }
-            
-            // Dọn rác lần cuối
-            content = content.replace(/\\r/g, "");
-            content = content.replace(/<div[^>]*>/gi, "");
-            content = content.replace(/<\/div>/gi, "<br>");
 
-            // Kiểm tra nếu nội dung quá ngắn -> Báo lỗi cụ thể
-            if (content.length < 50) {
+            // 2. Xóa các thẻ rác hệ thống (Footer, Header, Quảng cáo)
+            // Xóa các link rác như trong ảnh bạn gửi (truyện mới, thể loại...)
+            content = content.replace(/<div[^>]*class="[^"]*(footer|ads|box-search)[^"]*"[^>]*>[\s\S]*?<\/div>/gi, "");
+            content = content.replace(/Điều Khoản[\s\S]*?Chính Sách Bảo Mật/gi, ""); 
+            content = content.replace(/Truyện Full[\s\S]*?Đam Mỹ Sắc/gi, "");
+            
+            // Xóa thẻ style, script
+            content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+            content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
+
+            // 3. Định dạng lại
+            content = content.replace(/\n/g, "<br>"); // Chuyển xuống dòng thành thẻ br
+            content = content.replace(/<br>\s*<br>/g, "<br>"); // Xóa dòng trống thừa
+
+            // Kiểm tra nếu nội dung quá ngắn (chỉ còn lại rác)
+            if (content.length < 100) {
                  return Response.success({
-                    content: "Nội dung chương quá ngắn hoặc bị lỗi tải. <br>Dữ liệu thô: " + content.substring(0, 100),
+                    content: "Chương này có nội dung quá ngắn hoặc là chương ảnh. <br>Vui lòng thử mở bằng trình duyệt.",
                     host: "https://www.tvtruyen.com"
                 });
             }
@@ -68,9 +69,8 @@ function execute(url) {
         }
     }
     
-    // Thay vì trả về null (gây lỗi app), trả về thông báo lỗi để bạn biết server phản hồi gì
     return Response.success({
-        content: "Lỗi kết nối đến server (Mã lỗi: " + res.code + "). Vui lòng thử lại sau.",
+        content: "Lỗi kết nối hoặc không lấy được dữ liệu. (Response Code: " + res.code + ")",
         host: "https://www.tvtruyen.com"
     });
 }
