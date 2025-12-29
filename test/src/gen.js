@@ -10,44 +10,73 @@ function execute(url, page) {
         let doc = res.html();
         let data = [];
         
-        // Xác định block truyện (thường là .col-truyen-main .row hoặc tương tự)
-        // Thay vì select "a", hãy select wrapper của từng truyện để lấy info chính xác
-        let elements = doc.select(".list-truyen .row, .col-truyen-main .list-group-item, .truyen-item"); 
+        // Danh sách các selector bao quanh item truyện thường gặp
+        // Ưu tiên: item trong list > grid > thẻ div generic
+        let selectors = [
+            ".list-group-item",         // List dọc phổ biến
+            ".col-truyen-main .row",    // Grid 
+            ".truyen-item",             // Class định danh item
+            ".item",
+            "div.col-md-3",             // Bootstrap Column
+            "div.col-6"                 // Mobile Column
+        ];
         
-        // Nếu không tìm thấy wrapper cụ thể, dùng logic cũ nhưng bổ sung lấy ảnh
-        if (elements.size() === 0) {
-             // Fallback logic cũ (đã cải tiến)
-             let links = doc.select(".list-group-item, .row"); // Select div chứa truyện thay vì thẻ a
-             // Logic này tuỳ thuộc vào HTML cụ thể của TVTruyen, 
-             // nhưng tôi khuyên bạn nên Inspect Element trang web để xem class bao ngoài mỗi truyện là gì.
-             // Dưới đây là ví dụ generic:
-        }
-
-        // Cách an toàn nhất nếu không biết class wrapper: Select thẻ img, sau đó tìm cha của nó
-        let images = doc.select("img");
-        for(let i = 0; i < images.size(); i++) {
-            let img = images.get(i);
-            let src = img.attr("src");
-            let parent = img.parent(); // Thường là thẻ a
-            if (parent.tagName() !== "a") parent = parent.parent(); // Lên 1 cấp nữa
-            
-            if (parent.tagName() === "a") {
-                 let link = parent.attr("href");
-                 let title = parent.attr("title") || img.attr("alt") || parent.text().trim();
-                 
-                 if (link && link.includes(".html") && title) {
-                     data.push({
-                        name: title,
-                        link: fixUrl(link),
-                        cover: fixUrl(src),
-                        description: "TVTruyen",
-                        host: "https://www.tvtruyen.com"
-                    });
-                 }
+        let elements = null;
+        // Thử từng selector, nếu tìm thấy phần tử thì dùng luôn
+        for (let i = 0; i < selectors.length; i++) {
+            let temp = doc.select(selectors[i]);
+            if (temp && temp.size() > 0) {
+                elements = temp;
+                break;
             }
-            if(data.length >= 20) break;
+        }
+        
+        // Fallback: Nếu không tìm thấy container, tìm trực tiếp thẻ A có chứa ảnh (không dùng parent)
+        // Lưu ý: Chỉ dùng logic này nếu các selector trên thất bại
+        if ((!elements || elements.size() === 0)) {
+             elements = doc.select("a:has(img)"); 
         }
 
+        if (elements) {
+            for (let i = 0; i < elements.size(); i++) {
+                let el = elements.get(i);
+                
+                let linkEl, imgEl;
+                
+                // Trường hợp el chính là thẻ <a> (Fallback case)
+                if (el.tagName() === "a") {
+                    linkEl = el;
+                    imgEl = el.select("img").first();
+                } else {
+                    // Trường hợp el là container (div, li...) -> tìm a và img bên trong
+                    linkEl = el.select("a").first();
+                    imgEl = el.select("img").first();
+                }
+
+                if (linkEl) {
+                    let link = linkEl.attr("href");
+                    let name = linkEl.attr("title") || linkEl.text().trim();
+                    let cover = "";
+                    
+                    if (imgEl) {
+                        // Ưu tiên lấy data-src (ảnh gốc) trước src (ảnh placeholder nếu có lazyload)
+                        cover = imgEl.attr("data-src") || imgEl.attr("data-original") || imgEl.attr("src");
+                        if (!name || name === "") name = imgEl.attr("alt");
+                    }
+
+                    // Lọc rác: Bỏ qua các link hệ thống, link javascript, link quá ngắn
+                    if (link && link.length > 5 && !link.includes("javascript") && name && name.length > 2) {
+                        data.push({
+                            name: name,
+                            link: fixUrl(link),
+                            cover: fixUrl(cover),
+                            description: "TVTruyen",
+                            host: "https://www.tvtruyen.com"
+                        });
+                    }
+                }
+            }
+        }
         return Response.success(data);
     }
     return null;
@@ -55,6 +84,10 @@ function execute(url, page) {
 
 function fixUrl(url) {
     if (!url || url === "") return "";
+    // Xử lý ảnh lazy load có thể bắt đầu bằng url background
+    if (url.includes("url(")) {
+        url = url.match(/url\(['"]?([^'"]+)['"]?\)/)[1];
+    }
     if (url.startsWith("http")) return url;
     if (url.startsWith("//")) return "https:" + url;
     return "https://www.tvtruyen.com" + (url.startsWith("/") ? url : "/" + url);
