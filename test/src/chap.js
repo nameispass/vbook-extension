@@ -1,89 +1,77 @@
 function execute(url) {
-    // Sử dụng User-Agent Chrome như Code 3
+    // 1. Dùng GoogleBot (Chìa khóa để không bị chặn)
     let res = fetch(url, {
         headers: {
-            "User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
             "Referer": "https://www.tvtruyen.com/"
         }
     });
 
     if (res.ok) {
-        // Lấy text thô (Raw Text)
         let text = res.text();
 
-        // --- BƯỚC 1: KIỂM TRA & BÓC TÁCH JSON ---
-        // Nếu server trả về JSON {"content": "..."}, ta phải lấy nội dung ra trước
-        if (text.trim().startsWith("{")) {
-            try {
-                let json = JSON.parse(text);
-                if (json.content) {
-                    text = json.content;
-                } else if (json.data && json.data.content) {
-                    text = json.data.content;
-                }
-            } catch (e) {
-                // Nếu parse JSON lỗi (do ký tự lạ), dùng Regex cắt chuỗi
-                let match = text.match(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-                if (match) text = match[1];
-            }
-            
-            // Xử lý các ký tự escape đặc thù của JSON sau khi bóc tách
-            text = text.replace(/\\n/g, "\n"); // Đưa về xuống dòng chuẩn
-            text = text.replace(/\\"/g, '"');
-            text = text.replace(/\\\//g, "/");
-        }
-
-        // --- BƯỚC 2: XỬ LÝ XUỐNG DÒNG (BÍ KÍP CỦA CODE 3) ---
-        // Thay thế toàn bộ ký tự xuống dòng \n bằng <br> để HTML hiển thị đúng
-        text = text.replace(/\r?\n/g, "<br>");
-
-        // --- BƯỚC 3: PARSE HTML & LẤY NỘI DUNG ---
-        let doc = Html.parse(text);
+        // 2. GIẢI MÃ KÝ TỰ "CỨNG ĐẦU" NGAY TỪ ĐẦU
+        // Biến tất cả các ký tự \n (xuống dòng mã hóa) thành thẻ <br> ngay lập tức
+        // Bất kể nó nằm trong JSON hay HTML
+        text = text.replace(/\\n/g, "<br>"); 
+        text = text.replace(/\\r/g, "");
+        text = text.replace(/\\t/g, " ");
         
-        // Thử tìm nội dung trong các thẻ div chuẩn
-        let contentEl = doc.select("#content, .content-hienthi, .chapter-c, .truyen-text").first();
-        let content = "";
+        // Giải mã ký tự đặc biệt
+        text = text.replace(/\\"/g, '"');  // \" -> "
+        text = text.replace(/\\\//g, "/"); // \/ -> /
+        text = text.replace(/\\\\/g, "\\");
 
-        if (contentEl) {
-            content = contentEl.html();
-        } else {
-            // Nếu không tìm thấy div (hoặc text ban đầu là JSON text trần), 
-            // thì chính text đó là nội dung (sau khi đã lọc sạch thẻ body/html nếu có)
-            if (text.length > 200 && !text.includes("<body")) {
-                content = text;
-            } else {
-                 // Fallback: Tìm div chứa nhiều chữ nhất
-                 let divs = doc.select("div");
-                 let max = 0;
-                 for(let i=0; i<divs.size(); i++){
-                     let d = divs.get(i);
-                     // Bỏ qua div hệ thống
-                     if(d.attr("class").includes("container") || d.attr("class").includes("main")) continue;
-                     
-                     if(d.text().length > max) {
-                         max = d.text().length;
-                         content = d.html();
-                     }
-                 }
-            }
+        // 3. CHIẾN THUẬT VÉT CẠN NỘI DUNG
+        // Thay vì parse JSON (dễ lỗi), ta dùng Regex để cắt bỏ phần đầu và đuôi của JSON
+        // Thường JSON bắt đầu bằng {"content":" và kết thúc bằng "}
+        
+        // Xóa phần đầu JSON rác
+        text = text.replace(/^[\s\S]*?"content"\s*:\s*"/, ""); 
+        // Xóa phần đuôi JSON rác (từ dấu ngoặc kép cuối cùng trở đi)
+        text = text.replace(/"\s*,?\s*"host"[\s\S]*$/, "");
+        text = text.replace(/"\s*}\s*$/, "");
+
+        // 4. DỌN RÁC HTML (BỘ LỌC)
+        // Xóa script, style
+        text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
+        text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
+        
+        // Xóa các menu, footer, quảng cáo (Dựa trên class phổ biến)
+        text = text.replace(/<div[^>]*class="[^"]*(footer|ads|box-search|top-nav|menu|bread)[^"]*"[^>]*>[\s\S]*?<\/div>/gi, "");
+        
+        // Xóa các danh sách link (Menu truyện hot, thể loại...)
+        text = text.replace(/<ul[^>]*>[\s\S]*?<\/ul>/gi, "");
+        text = text.replace(/<li[^>]*>[\s\S]*?<\/li>/gi, "");
+        
+        // Xóa các dòng text hệ thống cụ thể
+        text = text.replace(/Truyện Full[\s\S]*?Đam Mỹ Sắc/gi, "");
+        text = text.replace(/Điều Khoản[\s\S]*?Bảo Mật/gi, "");
+        text = text.replace(/Đọc truyện.*tại.*TVTruyen/gi, "");
+
+        // 5. THẨM MỸ HÓA
+        // Xóa các thẻ div còn sót lại (chỉ giữ text)
+        text = text.replace(/<div[^>]*>/gi, "");
+        text = text.replace(/<\/div>/gi, "<br>");
+        
+        // Xóa dòng trống thừa
+        text = text.replace(/(<br>\s*){2,}/gi, "<br><br>");
+        
+        // Cắt bỏ các ký tự rác ở đầu/cuối chuỗi nếu còn sót
+        text = text.trim();
+        if (text.endsWith('"')) text = text.slice(0, -1);
+
+        // 6. KIỂM TRA LẦN CUỐI
+        // Nếu sau khi lọc mà nội dung quá ngắn (<100 ký tự) -> Có thể lỗi
+        if (text.length < 100) {
+            // Thử fallback sang HTML parser thường nếu cách trên lỡ tay xóa hết
+            let doc = Html.parse(res.text()); // Parse lại từ text gốc
+            let el = doc.select("#content, .content-hienthi").first();
+            if (el) text = el.html();
         }
 
-        // --- BƯỚC 4: DỌN RÁC ---
-        if (content) {
-            // Xóa rác hệ thống
-            content = content.replace(/<div[^>]*class="[^"]*(footer|ads|box-search|top-nav)[^"]*"[^>]*>[\s\S]*?<\/div>/gi, "");
-            content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "");
-            content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
-            
-            // Xóa các link rác
-            content = content.replace(/<ul[^>]*>[\s\S]*?<\/ul>/gi, "");
-            content = content.replace(/<a[^>]*>[\s\S]*?<\/a>/gi, "");
-            
-            // Xóa text quảng cáo
-            content = content.replace(/Truyện Full[\s\S]*?Đam Mỹ Sắc/gi, "");
-            
-            return Response.success(content);
-        }
+        return Response.success(text);
     }
+    
     return null;
 }
